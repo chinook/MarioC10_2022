@@ -16,6 +16,7 @@ void DoPitchControl()
 	if (sensor_data.feedback_pitch_mode == MOTOR_MODE_AUTOMATIC)
 	{
 		float new_pitch_target = CalcPitchAuto();
+		// new_pitch_target = 0.0f;
 		pitch_auto_target = new_pitch_target;
 		// VerifyPitchCmd();
 
@@ -38,6 +39,7 @@ void DoPitchControl()
 					{
 						pitch_done_counter = 0;
 						SendPitchAngleCmd(new_pitch_target);
+						// SendPitchTargetCmd(PITCH_ABSOLUTE_ZERO);
 					}
 				}
 
@@ -48,5 +50,23 @@ void DoPitchControl()
 
 void DoMastControl()
 {
-
+#define WIND_SPEED_MAST_THRESHOLD 1.0f
+#define WIND_DIR_MAST_HYSTERESIS 10.0f // -10degs, +10degs
+	if (sensor_data.wind_speed_avg >= WIND_SPEED_MAST_THRESHOLD)
+	{
+		if (abs(sensor_data.wind_direction_avg) >= WIND_DIR_MAST_HYSTERESIS)
+		{
+			uint8_t dir = MOTOR_DIRECTION_LEFT;
+			if (sensor_data.wind_direction_avg < 0.0f)
+				dir = MOTOR_DIRECTION_RIGHT;
+			TransmitCAN(MARIO_MAST_MANUAL_CMD, (uint8_t*)&dir, 4, 0);
+			pitch_done = 0;
+			delay_us(100);
+		}
+		else
+		{
+			uint8_t dir = MOTOR_DIRECTION_STOP;
+			TransmitCAN(MARIO_MAST_MANUAL_CMD, (uint8_t*)&dir, 4, 0);
+		}
+	}
 }

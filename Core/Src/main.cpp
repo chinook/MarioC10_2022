@@ -155,27 +155,30 @@ void ExecuteStateMachine()
 	static int timer_250ms_counter = 0;
 	if (timer_50ms_flag)
 	{
+		flag_acq_interval = 1;
+
 		timer_250ms_counter++;
 		timer_50ms_flag = 0;
 	}
 	if (timer_250ms_counter == 5)
 	{
-		flag_uart_tx_send = 1;
+		//flag_uart_tx_send = 1;
+		flag_can_tx_send = 1;
+
 		timer_250ms_counter = 0;
 	}
 	if (timer_100ms_flag)
 	{
 		timer_100ms_flag = 0;
 
-		flag_can_tx_send = 1;
-		flag_acq_interval = 1;
 		flag_rotor_rpm_process = 1;
-		// flag_uart_tx_send = 1;
+		flag_uart_tx_send = 1;
 	}
 	if (timer_500ms_flag)
 	{
 		timer_500ms_flag = 0;
 
+		//flag_uart_tx_send = 1;
 		flag_wheel_rpm_process = 1;
 		flag_alive_led = 1;
 	}
@@ -304,18 +307,18 @@ uint32_t DoStateAcquisition()
 		sensor_data.rotor_rpm = GetRotorRPM();
 	}
 
-	if (b_rops)
-		return STATE_ROPS;
-	else
-		return STATE_MOTOR_CONTROL;
-
 	// Check ROPS
 	if (sensor_data.rotor_rpm >= ROTOR_RPM_ROPS)
 	{
 		// ACTIVATE ROPS
-		b_rops = 1;
-		return STATE_ROPS;
+		//b_rops = 1;
+		//return STATE_ROPS;
 	}
+
+	if (b_rops)
+		return STATE_ROPS;
+	else
+		return STATE_MOTOR_CONTROL;
 
 	return STATE_MOTOR_CONTROL;
 }
@@ -323,15 +326,20 @@ uint32_t DoStateAcquisition()
 uint32_t DoStateMotorControl()
 {
 #define NORMAL 0
-#define ALL_MANUAL 0
+#define ALL_MANUAL 1
 #define ALL_AUTO 0
 #define MANUAL_MAST 0
 #define TEST_PITCH_MANUAL 0
 #define TEST_PITCH_AUTO 0
-#define TEST_AUTO_ROPS 1
+#define TEST_AUTO_ROPS 0
 
-	if (NORMAL)
+	if (b_rops)
 	{
+		VerifyRopsCmd();
+	}
+	else if (NORMAL)
+	{
+		// b_rops = 1;
 		// TODO: Code compe
 		if (!b_rops)
 		{
@@ -373,6 +381,9 @@ uint32_t DoStateMotorControl()
 			TransmitCAN(MARIO_PITCH_MODE_CMD, (uint8_t*)&pitch_mode, 4, 0);
 			delay_us(100);
 		}
+
+		DoPitchControl();
+		DoMastControl();
 	}
 	else if (MANUAL_MAST)
 	{
@@ -706,19 +717,19 @@ uint32_t DoStateCAN()
 		TransmitCAN(MARIO_WIND_SPEED, (uint8_t*)&wind_speed_ms, 4, 0);
 		delay_us(100);
 
-		// float wheel_rpm_adj = sensor_data.wheel_rpm + 1;
-		// TransmitCAN(MARIO_WHEEL_RPM, (uint8_t*)&wheel_rpm_adj, 4, 0);
-		// delay_us(100);
+		float wheel_rpm_adj = sensor_data.wheel_rpm + 1;
+		TransmitCAN(MARIO_WHEEL_RPM, (uint8_t*)&wheel_rpm_adj, 4, 0);
+		delay_us(100);
 
 
-		float tsr = CalcTSR();
+		// float tsr = CalcTSR();
 		// float tsr = 12.34f;
 
 		// tsr = sensor_data.torque;
 		// TransmitCAN(MARIO_TIP_SPEED_RATIO, (uint8_t*)&tsr, 4, 0);
 		// delay_us(100);
 
-		float wind_dir = sensor_data.wind_direction - 120.0f;
+		float wind_dir = sensor_data.wind_direction;
 		// float wind_dir = sensor_data.loadcell;
 		TransmitCAN(MARIO_WIND_DIRECTION, (uint8_t*)&wind_dir, 4, 0);
 		delay_us(100);
@@ -1005,15 +1016,19 @@ void SendToLora()
 	SendLoraFrame(0x104, (uint8_t*)&data);
 	delay_us(20);
 
+
 	data[0] = (float)sensor_data.pitch_encoder;
 	data[1] = sensor_data.pitch_angle;
 	SendLoraFrame(0x105, (uint8_t*)&data);
 	delay_us(20);
 
+
 	data_u32[0] = sensor_data.feedback_pitch_mode;
 	data_u32[1] = sensor_data.feedback_mast_mode;
 	SendLoraFrame(0x106, (uint8_t*)&data_u32);
 	delay_us(20);
+
+
 
 	uint32_t can_esr = CAN1->ESR;
 	data_u8[0] = (can_esr & CAN_ESR_REC_Msk) >> CAN_ESR_REC_Pos;
@@ -1026,16 +1041,23 @@ void SendToLora()
 	SendLoraFrame(0x107, (uint8_t*)&data_u8);
 	delay_us(20);
 
+
+	// sensor_data.wind_speed = 5.6f;
+	// sensor_data.rotor_rpm = 400.0f;
+
 	// Power + TSR
 	data[0] = sensor_data.power;
 	data[1] = CalcTSR();
-	SendLoraFrame(0x108, (uint8_t*)&data_u32);
+	SendLoraFrame(0x108, (uint8_t*)&data);
 	delay_us(20);
 
 	data_u8[0] = b_rops;
 	SendLoraFrame(0x109, (uint8_t*)&data_u8);
 	delay_us(20);
 
+
+	//pitch_auto_target = CalcPitchAuto();
+	//pitch_rops_target = 0.0f;
 	data[0] = pitch_auto_target;
 	data[1] = pitch_rops_target;
 	// data[0] = 34.78f;

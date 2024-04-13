@@ -7,6 +7,8 @@
 #include <stdlib.h>
 
 #define PITCH_ENCODER_BITS 12
+//define PITCH_ENCODER_BITS 17
+//#define PITCH_ENCODER_BITS 24
 
 
 
@@ -28,6 +30,11 @@ uint8_t ws_rx_byte[4];
 
 uint32_t wheel_rpm_counter = 0;
 uint32_t rotor_rpm_counter = 0;
+
+float wind_dirs[4];
+float wind_speeds[4];
+int wind_dir_last_idx = 0;
+int wind_speed_last_idx = 0;
 
 
 void ReadWeatherStation()
@@ -68,7 +75,15 @@ void ReadWeatherStation()
 			float wind_dir = atof(wind_dir_msg);
 			float wind_speed = atof(wind_speed_msg);
 
-			sensor_data.wind_direction = wind_dir;
+			wind_dirs[wind_dir_last_idx++] = wind_dir;
+			wind_speeds[wind_speed_last_idx++] = wind_speed;
+			if (wind_dir_last_idx >= 4) wind_dir_last_idx = 0;
+			if (wind_speed_last_idx >= 4) wind_speed_last_idx = 0;
+			// Do the average
+			sensor_data.wind_direction_avg = (wind_dirs[0] + wind_dirs[1] + wind_dirs[2] + wind_dirs[3]) / 4.0f;
+			sensor_data.wind_speed_avg = (wind_speeds[0] + wind_speeds[1] + wind_speeds[2] + wind_speeds[3]) / 4.0f;
+
+			sensor_data.wind_direction = wind_dir;// - 120.0f;
 #define KNOTS_TO_MS 0.514444f
 			float wind_speed_ms = KNOTS_TO_MS * wind_speed;
 			sensor_data.wind_speed = wind_speed_ms;
@@ -114,7 +129,8 @@ void ReadTorqueLoadcellADC()
 	// sensor_data.loadcell = (float)adc_loadcell * ADC_TO_LOADCELL;
 	// sensor_data.loadcell = (float)adc_loadcell * ADC_TO_TORQUE;
 
-	sensor_data.loadcell = 0.0f;
+	// sensor_data.loadcell = 0.0f;
+	sensor_data.loadcell = (float)adc_torque * ADC_TO_LOADCELL;
 	sensor_data.torque = (float)adc_loadcell * ADC_TO_TORQUE;
 }
 
@@ -206,12 +222,20 @@ float GetRotorRPM()
 
 		rotor_rpm_counter = 0;
 
+		if (abs(sensor_data.rotor_rpm - rotor_rpm) > 500)
+		{
+			// Ignore
+			return sensor_data.rotor_rpm;
+		}
+
 		return rotor_rpm;
 }
 
 uint32_t ReadPitchEncoder()
 {
+	/*
 #define DUAL_TRANSMISSION 1
+	//HAL_GPIO_WritePin(Pitch_Clock_GPIO_Port, Pitch_Clock_Pin, GPIO_PIN_SET);
 	// SSI works from 100kHz to about 2MHz
 	uint32_t pitch_data = 0;
 	for(int i = 0; i < PITCH_ENCODER_BITS; ++i)
@@ -219,15 +243,23 @@ uint32_t ReadPitchEncoder()
 		pitch_data <<= 1;
 
 		HAL_GPIO_WritePin(Pitch_Clock_GPIO_Port, Pitch_Clock_Pin, GPIO_PIN_RESET);
-		// for (int i = 0; i < 100; ++i) {} // Wait 10 us
-		delay_us(2);
+		//for (int i = 0; i < 200; ++i) { ; } // Wait 10 us
+		//delay_us(2);
+
+		delay_us(10);
+
 
 		HAL_GPIO_WritePin(Pitch_Clock_GPIO_Port, Pitch_Clock_Pin, GPIO_PIN_SET);
-		// for (int i = 0; i < 100; ++i) {} // Wait 10 us
-		delay_us(2);
+		//HAL_GPIO_TogglePin(Pitch_Clock_GPIO_Port, Pitch_Clock_Pin);
+		//for (int i = 0; i < 200; ++i) { ; } // Wait 10 us
+		delay_us(5);
 
 		pitch_data |= HAL_GPIO_ReadPin(Pitch_Data_GPIO_Port, Pitch_Data_Pin);
+		delay_us(0);
+
 	}
+
+
 
 	uint32_t pitch_data2 = pitch_data;
 	if (DUAL_TRANSMISSION)
@@ -237,22 +269,88 @@ uint32_t ReadPitchEncoder()
 		{
 			pitch_data2 <<= 1;
 
+
 			HAL_GPIO_WritePin(Pitch_Clock_GPIO_Port, Pitch_Clock_Pin, GPIO_PIN_RESET);
-			// for (int i = 0; i < 100; ++i) {} // Wait 10 us
-			delay_us(2);
+			//for (int i = 0; i < 200; ++i) { ; } // Wait 10 us
+			//delay_us(2);
+
+			delay_us(10);
+
 
 			HAL_GPIO_WritePin(Pitch_Clock_GPIO_Port, Pitch_Clock_Pin, GPIO_PIN_SET);
-			// for (int i = 0; i < 100; ++i) {} // Wait 10 us
-			delay_us(2);
+			//HAL_GPIO_TogglePin(Pitch_Clock_GPIO_Port, Pitch_Clock_Pin);
+			//for (int i = 0; i < 200; ++i) { ; } // Wait 10 us
+			delay_us(5);
 
 			pitch_data2 |= HAL_GPIO_ReadPin(Pitch_Data_GPIO_Port, Pitch_Data_Pin);
+			delay_us(0);
 		}
 	}
+	*/
+
+// Working Tuesday August 22
+
+#define DUAL_TRANSMISSION 1
+	//HAL_GPIO_WritePin(Pitch_Clock_GPIO_Port, Pitch_Clock_Pin, GPIO_PIN_SET);
+	// SSI works from 100kHz to about 2MHz
+	uint32_t pitch_data = 0;
+	for(int i = 0; i < PITCH_ENCODER_BITS; ++i)
+	{
+		pitch_data <<= 1;
+
+		HAL_GPIO_WritePin(Pitch_Clock_GPIO_Port, Pitch_Clock_Pin, GPIO_PIN_RESET);
+		//for (int i = 0; i < 200; ++i) { ; } // Wait 10 us
+		//delay_us(2);
+
+		delay_us(10);
+
+
+		HAL_GPIO_WritePin(Pitch_Clock_GPIO_Port, Pitch_Clock_Pin, GPIO_PIN_SET);
+		//HAL_GPIO_TogglePin(Pitch_Clock_GPIO_Port, Pitch_Clock_Pin);
+		//for (int i = 0; i < 200; ++i) { ; } // Wait 10 us
+		delay_us(4);
+
+		pitch_data |= HAL_GPIO_ReadPin(Pitch_Data_GPIO_Port, Pitch_Data_Pin);
+		//delay_us(10);
+
+	}
+
+
+
+	uint32_t pitch_data2 = pitch_data;
+	if (DUAL_TRANSMISSION)
+	{
+		pitch_data2 = 0;
+		for(int i = 0; i < PITCH_ENCODER_BITS+2; ++i)
+		{
+			pitch_data2 <<= 1;
+
+
+			HAL_GPIO_WritePin(Pitch_Clock_GPIO_Port, Pitch_Clock_Pin, GPIO_PIN_RESET);
+			//for (int i = 0; i < 200; ++i) { ; } // Wait 10 us
+			//delay_us(2);
+
+			delay_us(8);
+
+
+			HAL_GPIO_WritePin(Pitch_Clock_GPIO_Port, Pitch_Clock_Pin, GPIO_PIN_SET);
+			//HAL_GPIO_TogglePin(Pitch_Clock_GPIO_Port, Pitch_Clock_Pin);
+			//for (int i = 0; i < 200; ++i) { ; } // Wait 10 us
+			delay_us(4);
+
+			pitch_data2 |= HAL_GPIO_ReadPin(Pitch_Data_GPIO_Port, Pitch_Data_Pin);
+			//delay_us(10);
+		}
+	}
+
 
 	if (pitch_data == pitch_data2 ||
 		abs((int)pitch_data2 - (int)pitch_data) < 10)
 	{
+		if (pitch_data == 0)
+			return 0xFFFFFFFF;
 		return (pitch_data*1024);
+		// return pitch_data;
 	}
 	else
 	{

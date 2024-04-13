@@ -86,6 +86,9 @@ typedef struct SensorData_{
 	uint32_t mast_encoder;
 	uint8_t limit1, limit2;
 
+	float wind_direction_avg;
+	float wind_speed_avg;
+
 	// Motor modes
 	uint32_t feedback_pitch_mode;
 	uint32_t feedback_mast_mode;

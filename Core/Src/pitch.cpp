@@ -58,6 +58,8 @@ float CalcPitchAnglePales(uint8_t bound_angle)
 	static const float PITCH_TO_ANGLE_RATIO = ENCODER_TO_PALES_RATIO * (360.0f / (float)MAX_PITCH_VALUE);
 	float pitch_angle = (float)delta_pitch * PITCH_TO_ANGLE_RATIO;
 
+	pitch_angle += 26.8f;
+
 	// Bound angle between -180 and 180 degrees
 	if (bound_angle)
 		pitch_angle = BoundAngleSemiCircle(pitch_angle);
@@ -75,6 +77,8 @@ float CalcPitchAnglePales(uint32_t abs_target, uint8_t bound_angle)
 	static const float PITCH_TO_ANGLE_RATIO = ENCODER_TO_PALES_RATIO * (360.0f / (float)MAX_PITCH_VALUE);
 	float pitch_angle = (float)delta_pitch * PITCH_TO_ANGLE_RATIO;
 
+	pitch_angle += 26.8f;
+
 	// Bound angle between -180 and 180 degrees
 	if (bound_angle)
 		pitch_angle = BoundAngleSemiCircle(pitch_angle);
@@ -89,8 +93,11 @@ float CalcTSR()
 {
 	static const float RPM_TO_RADS = 2.0f * PI / 60.0f;
 	float rotor_speed_omega = RPM_TO_RADS * sensor_data.rotor_rpm;
+	// float rotor_speed_omega = sensor_data.rotor_rpm;
+	// float rotor_speed_omega = RPM_TO_RADS * 500.0f;
 
-	float wind_speed_ms = KNOTS_TO_MS * sensor_data.wind_speed;
+	// float wind_speed_ms = KNOTS_TO_MS * sensor_data.wind_speed;
+	float wind_speed_ms = sensor_data.wind_speed;
 
 	if (abs(wind_speed_ms) < MIN_EPSILON)
 		return 0.0f;
@@ -106,6 +113,7 @@ float CalcPitchAuto()
 #define ALGO_C10 0
 
 	float tsr = CalcTSR();
+	// -440.017 + 435.068*x + 196.501*x^2 - 487.301*x^3 + 324.152*x^4 - 119.048*x^5 + 27.5701*x^6 - 4.19495*x^7 + 0.419413*x^8 - 0.0265633*x^9 + 0.000967116*x^10 - 1.5428e-5*x^11
 
 	if (ALGO_C10)
 	{
@@ -121,7 +129,7 @@ float CalcPitchAuto()
 							  11.90368681f * tsr3 -
 							  38.19438424f * tsr2 +
 							  43.63402687f * tsr +
-							  4.55041087;
+							  4.55041087f;
 		return pitch_target;
 	}
 	else if (ALGO_C11)
@@ -134,16 +142,20 @@ float CalcPitchAuto()
 		float tsr7 = tsr6 * tsr;
 		float tsr8 = tsr6 * tsr2;
 
-		float pitch_target = 531.001 -
-						   502.712 * tsr  -
-						   221.383 * tsr2 +
-						   576.857 * tsr3 -
-						   392.517 * tsr4 +
-						   145.522 * tsr5 -
-						   33.6882 * tsr6 +
-						   5.09176 * tsr7 -
-						   0.503931 * tsr8;
+		float pitch_target = -440.017f +
+						   	  435.068f * tsr  +
+							  196.501f * tsr2 -
+							  487.301f * tsr3 +
+							  324.152f * tsr4 -
+							  119.048f * tsr5 +
+							  27.5701f * tsr6 -
+							  4.19495f * tsr7 +
+							  0.419413f * tsr8;
 
+		// clamp pitch target
+#define MAX_PITCH_VAL 20.0f
+		//if (pitch_target < -MAX_PITCH_VAL) pitch_target = -MAX_PITCH_VAL;
+		//if (pitch_target > MAX_PITCH_VAL) pitch_target = MAX_PITCH_VAL;
 		return pitch_target;
 	}
 }
@@ -192,13 +204,13 @@ void SendPitchTargetCmd(uint32_t target_pitch_abs)
 	{
 
 		// uint32_t nb_steps_cmd = (int)
-		/*
-		if (sensor_data.feedback_pitch_rops != 1)
+
+		// if (sensor_data.feedback_pitch_rops != 1)
 		{
-			uint32_t rops_cmd = ROPS_ENABLE;
+			uint32_t rops_cmd = ROPS_DISABLE;
 			SendROPSCmdCan(rops_cmd);
 		}
-		*/
+
 
 
 		SendPitchCmdCan(nb_steps);
@@ -286,13 +298,11 @@ void SendPitchAngleCmd(float target_pitch)
 	//if(true || pitch_done)
 	if(pitch_done)
 	{
-		/*
-		if (sensor_data.feedback_pitch_rops != 1)
+		// if (sensor_data.feedback_pitch_rops != 1)
 		{
-			uint32_t rops_cmd = ROPS_ENABLE;
+			uint32_t rops_cmd = ROPS_DISABLE;
 			SendROPSCmdCan(rops_cmd);
 		}
-		*/
 
 		SendPitchCmdCan(nb_steps);
 	}
