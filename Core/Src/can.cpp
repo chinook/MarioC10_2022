@@ -40,7 +40,31 @@ void ProcessCanMessage()
 	// uint32_t upper_can_data = rxData[4] | (rxData[5] << 8) | (rxData[6] << 16) | (rxData[7] << 24);
 	uint32_t can_data = rxData[0] | (rxData[1] << 8) | (rxData[2] << 16) | (rxData[3] << 24);
 
-	if (pRxHeader.StdId == DRIVEMOTOR_PITCH_MODE_FEEDBACK)
+	if (pRxHeader.StdId == LUIGI_HEARTBEAT)
+	{
+		// Rotor PCB Heartbeat
+	}
+	else if (pRxHeader.StdId == LUIGI_ROTOR_RPM)
+	{
+
+	}
+	else if (pRxHeader.StdId == LUIGI_TORQUE)
+	{
+
+	}
+	else if (pRxHeader.StdId == LUIGI_LOADCELL)
+	{
+
+	}
+	else if (pRxHeader.StdId == LUIGI_ENCODER_RAW)
+	{
+
+	}
+	else if (pRxHeader.StdId == LUIGI_PITCH_ANGLE)
+	{
+
+	}
+	else if (pRxHeader.StdId == DRIVEMOTOR_PITCH_MODE_FEEDBACK)
 	{
 		sensor_data.feedback_pitch_mode = (can_data & 0xFF);
 	}
