@@ -386,11 +386,9 @@ void UART5_IRQHandler(void)
   HAL_UART_IRQHandler(&huart5);
   /* USER CODE BEGIN UART5_IRQn 1 */
 
-<<<<<<< HEAD
+
   HAL_GPIO_TogglePin(LED2_GPIO_Port, LED2_Pin);
-=======
   //HAL_GPIO_TogglePin(LED3_GPIO_Port, LED3_Pin);
->>>>>>> d26881b8c257761095f66bedb84372fa4138745f
 
   	//HAL_GPIO_TogglePin(LD3_GPIO_Port, LD3_Pin);
   		if ((UART5->SR & UART_IT_RXNE)) {

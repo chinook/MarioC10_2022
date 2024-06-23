@@ -30,6 +30,9 @@
 
 #include "chinook_can_ids.h"
 
+#include "motor_control.h"
+#include "pitch.h"
+
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -99,7 +102,7 @@ uint32_t rotor_rpm_counter;
 uint32_t rpm_counter_time;
 
 // Weather station
-uint8_t rx_buff[64];
+uint8_t rx_buff[128];
 uint8_t index_buff;
 uint8_t ws_receive_flag;
 
@@ -110,6 +113,7 @@ uint8_t ws_rx_byte[4];
 
 uint8_t timer_50ms_flag;
 uint8_t timer_100ms_flag;
+uint8_t timer_250ms_flag;
 uint8_t timer_500ms_flag;
 
 // 500ms flags
@@ -124,18 +128,18 @@ uint8_t flag_wheel_rpm_process = 0;
 uint8_t flag_rotor_rpm_process = 0;
 
 // CAN variables
-uint8_t txData[8];
-uint8_t rxData[8];
+//uint8_t txData[8];
+//uint8_t rxData[8];
 
 // uint8_t can1_recv_flag = 0;
-CAN_TxHeaderTypeDef pTxHeader;
-CAN_RxHeaderTypeDef pRxHeader;
-uint32_t txMailbox;
+//CAN_TxHeaderTypeDef pTxHeader;
+//CAN_RxHeaderTypeDef pRxHeader;
+//uint32_t txMailbox;
 
-uint8_t pb1_value = 0;
-uint8_t pb2_value = 0;
-uint8_t pb1_update = 0;
-uint8_t pb2_update = 0;
+//uint8_t pb1_value = 0;
+//uint8_t pb2_value = 0;
+//uint8_t pb1_update = 0;
+//uint8_t pb2_update = 0;
 
 uint8_t pitch_done = 0;
 
@@ -178,10 +182,10 @@ void DoStateError();
 float CalcTSR();
 float CalcPitchAuto();
 
-float CalcPitchAnglePales(uint8_t bound_angle);
+//float CalcPitchAnglePales(uint8_t bound_angle);
 
-void SendPitchROPSCmd();
-void SendPitchAngleCmd(float target_pitch);
+//void SendPitchROPSCmd();
+//void SendPitchAngleCmd(float target_pitch);
 
 
 HAL_StatusTypeDef ADC_SendI2C(uint8_t addr, uint8_t reg, uint16_t data);
@@ -299,111 +303,111 @@ static float CalcDeltaPitch(uint32_t reference_point)
 	return delta_pitch;
 }
 
-float CalcPitchAnglePales(uint8_t bound_angle)
-{
-	float delta_pitch = CalcDeltaPitch(PITCH_ABSOLUTE_ZERO);
+//float CalcPitchAnglePales(uint8_t bound_angle)
+//{
+//	float delta_pitch = CalcDeltaPitch(PITCH_ABSOLUTE_ZERO);
+//
+//#define ENCODER_TO_PALES_RATIO (3.0f / 2.0f)
+//	static const float PITCH_TO_ANGLE_RATIO = ENCODER_TO_PALES_RATIO * (360.0f / (float)MAX_PITCH_VALUE);
+//	float pitch_angle = (float)delta_pitch * PITCH_TO_ANGLE_RATIO;
+//
+//	// Bound angle between -180 and 180 degrees
+//	if (bound_angle)
+//		pitch_angle = BoundAngleSemiCircle(pitch_angle);
+//
+//	return pitch_angle;
+//}
 
-#define ENCODER_TO_PALES_RATIO (3.0f / 2.0f)
-	static const float PITCH_TO_ANGLE_RATIO = ENCODER_TO_PALES_RATIO * (360.0f / (float)MAX_PITCH_VALUE);
-	float pitch_angle = (float)delta_pitch * PITCH_TO_ANGLE_RATIO;
+//void SendPitchROPSCmd()
+//{
+//	// Negative because we want pitch to ROPS (but we compute the other direction)
+//	float delta_pitch = -CalcDeltaPitch(PITCH_ABSOLUTE_ROPS);
+//
+//	static const float pitch_to_angle = 360.0f / MAX_PITCH_VALUE;
+//	float delta_angle_encoder = delta_pitch * pitch_to_angle;
+//
+//	static const float angle_mov_per_step_inv = 293.89f / 1.8f;
+//	int nb_steps = (int)(delta_angle_encoder * angle_mov_per_step_inv);
+//	// static const float angle_mov_per_step_inv = 293.89f / 1.8f;
+//	// int nb_steps = (int)(delta_angle_encoder * angle_mov_per_step_inv);
+//
+//	if(abs(nb_steps) > MAX_STEPS_PER_CMD)
+//	{
+//		if(nb_steps < 0)
+//			nb_steps = -MAX_STEPS_PER_CMD;
+//		else
+//			nb_steps = MAX_STEPS_PER_CMD;
+//	}
+//
+//	if(pitch_done)
+//	{
+//		// uint32_t nb_steps_cmd = (int)
+//		if (sensor_data.feedback_pitch_rops != 1)
+//		{
+//			uint32_t rops_cmd = ROPS_ENABLE;
+//			TransmitCAN(MARIO_ROPS_CMD, (uint8_t*)&rops_cmd, 4, 0);
+//			delay_us(100);
+//		}
+//
+//		TransmitCAN(MARIO_PITCH_CMD, (uint8_t*)&nb_steps, 4, 0);
+//		pitch_done = 0;
+//		delay_us(100);
+//	}
+//}
 
-	// Bound angle between -180 and 180 degrees
-	if (bound_angle)
-		pitch_angle = BoundAngleSemiCircle(pitch_angle);
-
-	return pitch_angle;
-}
-
-void SendPitchROPSCmd()
-{
-	// Negative because we want pitch to ROPS (but we compute the other direction)
-	float delta_pitch = -CalcDeltaPitch(PITCH_ABSOLUTE_ROPS);
-
-	static const float pitch_to_angle = 360.0f / MAX_PITCH_VALUE;
-	float delta_angle_encoder = delta_pitch * pitch_to_angle;
-
-	static const float angle_mov_per_step_inv = 293.89f / 1.8f;
-	int nb_steps = (int)(delta_angle_encoder * angle_mov_per_step_inv);
-	// static const float angle_mov_per_step_inv = 293.89f / 1.8f;
-	// int nb_steps = (int)(delta_angle_encoder * angle_mov_per_step_inv);
-
-	if(abs(nb_steps) > MAX_STEPS_PER_CMD)
-	{
-		if(nb_steps < 0)
-			nb_steps = -MAX_STEPS_PER_CMD;
-		else
-			nb_steps = MAX_STEPS_PER_CMD;
-	}
-
-	if(pitch_done)
-	{
-		// uint32_t nb_steps_cmd = (int)
-		if (sensor_data.feedback_pitch_rops != 1)
-		{
-			uint32_t rops_cmd = ROPS_ENABLE;
-			TransmitCAN(MARIO_ROPS_CMD, (uint8_t*)&rops_cmd, 4, 0);
-			delay_us(100);
-		}
-
-		TransmitCAN(MARIO_PITCH_CMD, (uint8_t*)&nb_steps, 4, 0);
-		pitch_done = 0;
-		delay_us(100);
-	}
-}
-
-void SendPitchAngleCmd(float target_pitch)
-{
-	// Bounds checking
-	// if (target_angle_pales < 180.0f || target_angle_pales > 180.0f)
-	//	return;
-	float target_angle_pales = BoundAngleSemiCircle(target_pitch);
-
-	// Calculate current pitch angle from ABSOLUTE ZERO
-	// float current_pitch_angle_pales = (3.0f / 2.0f) * pitch_to_angle(current_pitch);
-	float angle_pales = CalcPitchAnglePales(FALSE);
-	angle_pales = BoundAngleSemiCircle(angle_pales);
-
-	// Calculate the delta pitch angle for the stepper motor
-	float delta_angle_pales = target_angle_pales - angle_pales;
-	delta_angle_pales = BoundAngleSemiCircle(delta_angle_pales);
-
-	static const float angle_pales_to_encoder_angle = (2.0f / 3.0f);
-	float delta_angle_encoder = angle_pales_to_encoder_angle * delta_angle_pales;
-
-	// Convert the target angle to stepper steps
-	// static const float angle_mov_per_step = 1.8f / 293.89f;
-	// int nb_steps = (int)(delta_pitch_angle_encodeur / angle_mov_per_step);
-	static const float angle_mov_per_step_inv = 293.89f / 1.8f;
-	int nb_steps = (int)(delta_angle_encoder * angle_mov_per_step_inv);
-
-	// Set a maximum to the number of steps so that we don't overshoot too much
-	// Plus, its safer in case of angle error
-	//if(abs(nb_steps) > 300) nb_steps = 300;
-	//nb_steps *= -1;
-
-
-	if(abs(nb_steps) > MAX_STEPS_PER_CMD)
-	{
-		if(nb_steps < 0)
-			nb_steps = -MAX_STEPS_PER_CMD;
-		else
-			nb_steps = MAX_STEPS_PER_CMD;
-	}
-	// nb_steps *= -1;
-	// TODO: Add checks and validation of steps
-
-	// Send the command to the stepper drive
-	// Only send cmd if stepper has finished last command
-	// Stepper drive will notice us when done with the pitch_done CAN message.
-	//if(true || pitch_done)
-	if(pitch_done)
-	{
-		// uint32_t nb_steps_cmd = (int)
-		TransmitCAN(MARIO_PITCH_CMD, (uint8_t*)&nb_steps, 4, 0);
-		pitch_done = 0;
-		delay_us(100);
-	}
-}
+//void SendPitchAngleCmd(float target_pitch)
+//{
+//	// Bounds checking
+//	// if (target_angle_pales < 180.0f || target_angle_pales > 180.0f)
+//	//	return;
+//	float target_angle_pales = BoundAngleSemiCircle(target_pitch);
+//
+//	// Calculate current pitch angle from ABSOLUTE ZERO
+//	// float current_pitch_angle_pales = (3.0f / 2.0f) * pitch_to_angle(current_pitch);
+//	float angle_pales = CalcPitchAnglePales(FALSE);
+//	angle_pales = BoundAngleSemiCircle(angle_pales);
+//
+//	// Calculate the delta pitch angle for the stepper motor
+//	float delta_angle_pales = target_angle_pales - angle_pales;
+//	delta_angle_pales = BoundAngleSemiCircle(delta_angle_pales);
+//
+//	static const float angle_pales_to_encoder_angle = (2.0f / 3.0f);
+//	float delta_angle_encoder = angle_pales_to_encoder_angle * delta_angle_pales;
+//
+//	// Convert the target angle to stepper steps
+//	// static const float angle_mov_per_step = 1.8f / 293.89f;
+//	// int nb_steps = (int)(delta_pitch_angle_encodeur / angle_mov_per_step);
+//	static const float angle_mov_per_step_inv = 293.89f / 1.8f;
+//	int nb_steps = (int)(delta_angle_encoder * angle_mov_per_step_inv);
+//
+//	// Set a maximum to the number of steps so that we don't overshoot too much
+//	// Plus, its safer in case of angle error
+//	//if(abs(nb_steps) > 300) nb_steps = 300;
+//	//nb_steps *= -1;
+//
+//
+//	if(abs(nb_steps) > MAX_STEPS_PER_CMD)
+//	{
+//		if(nb_steps < 0)
+//			nb_steps = -MAX_STEPS_PER_CMD;
+//		else
+//			nb_steps = MAX_STEPS_PER_CMD;
+//	}
+//	// nb_steps *= -1;
+//	// TODO: Add checks and validation of steps
+//
+//	// Send the command to the stepper drive
+//	// Only send cmd if stepper has finished last command
+//	// Stepper drive will notice us when done with the pitch_done CAN message.
+//	//if(true || pitch_done)
+//	if(pitch_done)
+//	{
+//		// uint32_t nb_steps_cmd = (int)
+//		TransmitCAN(MARIO_PITCH_CMD, (uint8_t*)&nb_steps, 4, 0);
+//		pitch_done = 0;
+//		delay_us(100);
+//	}
+//}
 
 
 HAL_StatusTypeDef ADC_SendI2C(uint8_t addr, uint8_t reg, uint16_t data)
@@ -595,12 +599,15 @@ void FloatToString(float value, int decimal_precision, unsigned char* val)
 void ExecuteStateMachine()
 {
 	// Check for timer flags
+	static int timer_250ms_counter = 0;
 	if (timer_50ms_flag)
 	{
 		flag_acq_interval = 1;
 
 		
 		timer_50ms_flag = 0;
+
+		timer_250ms_counter++;
 
 		// flag_can_tx_send = 1;
 		// flag_rpm_process = 1;
@@ -903,12 +910,12 @@ uint32_t DoStateAcquisition()
 	}
 
 	// Check ROPS
-	if (sensor_data.rotor_rpm >= ROTOR_RPM_ROPS)
-	{
-		// ACTIVATE ROPS
-		//b_rops = 1;
-		//return STATE_ROPS;
-	}
+//	if (sensor_data.rotor_rpm >= ROTOR_RPM_ROPS)
+//	{
+//		// ACTIVATE ROPS
+//		//b_rops = 1;
+//		//return STATE_ROPS;
+//	}
 
 	return STATE_CHECK_ROPS;
 }
@@ -923,14 +930,17 @@ uint32_t DoStateCheckROPS()
 
 uint32_t DoStateMotorControl()
 {
+#define NORMAL 0
 #define MANUAL_MAST 0
 #define TEST_PITCH_MANUAL 1
 #define TEST_PITCH_AUTO 0
 #define TEST_AUTO_ROPS 0
+#define ALL_MANUAL 0
+#define ALL_AUTO 0
 
 	if (b_rops)
 	{
-		VerifyRopsCmd();
+		// VerifyRopsCmd();
 	}
 	else if (NORMAL)
 	{
@@ -944,7 +954,7 @@ uint32_t DoStateMotorControl()
 		}
 		else
 		{
-			VerifyRopsCmd();
+			// VerifyRopsCmd();
 		}
 	}
 	else if (ALL_MANUAL)
@@ -980,15 +990,13 @@ uint32_t DoStateMotorControl()
 		DoPitchControl();
 		DoMastControl();
 	}
-	else if (MANUAL_MAST)
-=======
-	// Do not control any motor when in ROPS
-	// TODO: (Marc) Maybe only leave mast control enabled ?
-	// if (b_rops)
-	//	return STATE_CAN;
+//	else if (MANUAL_MAST)
+//	// Do not control any motor when in ROPS
+//	// TODO: (Marc) Maybe only leave mast control enabled ?
+//	// if (b_rops)
+//	//	return STATE_CAN;
 
 	if (MANUAL_MAST)
->>>>>>> 53ead0a92f254fbacfa9fcd957a3e3cb30c366a7
 	{
 		uint32_t dir_left = MOTOR_DIRECTION_LEFT;
 		uint32_t dir_right = MOTOR_DIRECTION_RIGHT;
@@ -1084,7 +1092,7 @@ uint32_t DoStateMotorControl()
 			if (target_changed)
 			{
 				// Compute delta angle from -180 to 180 degrees
-				float delta_angle_pales = CalcPitchAnglePales(TRUE) - target_pitch;
+				float delta_angle_pales = CalcPitchAnglePales(1) - target_pitch;
 				delta_angle_pales = BoundAngleSemiCircle(delta_angle_pales);
 
 	#define MIN_ERROR_ANGLE 0.1f
@@ -1519,7 +1527,7 @@ uint32_t DoStateCan()
 		// Also send the turbine rpm value to the drive motor for ROPS detection
 		// TransmitCAN(MARIO_MOTOR_ROTOR_RPM, (uint8_t*)&sensor_data.rotor_rpm, 4, 0);
 		// delay_us(50);
-		*/
+
 
 
 
@@ -1903,16 +1911,16 @@ uint32_t DoStateUartTx()
 		FloatToString(sensor_data.loadcell, 2, loadcell_str);
 
 		// Compute angle from pitch encoder value
-		float pitch_angle = CalcPitchAnglePales(TRUE);
-		static unsigned char pitch_angle_str[20] = {0};
-		FloatToString(pitch_angle, 2, pitch_angle_str);
+		//float pitch_angle = CalcPitchAnglePales(TRUE);
+		//static unsigned char pitch_angle_str[20] = {0};
+		//FloatToString(pitch_angle, 2, pitch_angle_str);
 
-		static char clear_cmd[] = "\33c\e[3J";
-		if (HAL_OK != HAL_UART_Transmit(&huart2, (uint8_t*)clear_cmd, strlen(clear_cmd), 1))
-		{
-			// UART TX Error
-			HAL_GPIO_WritePin(LED4_GPIO_Port, LED4_Pin, GPIO_PIN_SET);
-		}
+		//static char clear_cmd[] = "\33c\e[3J";
+		//if (HAL_OK != HAL_UART_Transmit(&huart2, (uint8_t*)clear_cmd, strlen(clear_cmd), 1))
+		//{
+		//	// UART TX Error
+		//	HAL_GPIO_WritePin(LED4_GPIO_Port, LED4_Pin, GPIO_PIN_SET);
+		//}
 
 		// float tsr = CalcTSR();
 		static unsigned char tsr_str[20] = {0};
@@ -1924,25 +1932,25 @@ uint32_t DoStateUartTx()
 		// unsigned char msg[] = "Hello World! ";
 
 		char msg[1024] = { 0 };
-		sprintf(msg, "Wind Speed = %s,  Wind Direction = %s \n\rRotor rpm = %s,  wheel_rpm = %s \n\rPitch = %d,  angle = %s \n\rTorque = %s,  Loadcell = %s \n\rMast mode = %d,  Pitch mode = %d \n\rTSR = %s,  Pitch auto target = %s\n\rROPS = %d,  ROPS drive pitch = %d \n\r",
-				wind_speed_str, wind_direction_str,
-				rotor_rpm_str, wheel_rpm_str,
-				sensor_data.pitch_encoder, pitch_angle_str,
-				torque_str, loadcell_str,
-				sensor_data.feedback_mast_mode, sensor_data.feedback_pitch_mode,
-				tsr_str, pitch_auto_target_str,
-				b_rops, sensor_data.feedback_pitch_rops);
+//		sprintf(msg, "Wind Speed = %s,  Wind Direction = %s \n\rRotor rpm = %s,  wheel_rpm = %s \n\rPitch = %d,  angle = %s \n\rTorque = %s,  Loadcell = %s \n\rMast mode = %d,  Pitch mode = %d \n\rTSR = %s,  Pitch auto target = %s\n\rROPS = %d,  ROPS drive pitch = %d \n\r",
+//				wind_speed_str, wind_direction_str,
+//				rotor_rpm_str, wheel_rpm_str,
+//				sensor_data.pitch_encoder, pitch_angle_str,
+//				torque_str, loadcell_str,
+//				sensor_data.feedback_mast_mode, sensor_data.feedback_pitch_mode,
+//				tsr_str, pitch_auto_target_str,
+//				b_rops, sensor_data.feedback_pitch_rops);
 		//sprintf(msg, "Wind Speed = %d,  Wind Direction = %d \n\r", 1234, 5678);
 
 		// char msg[] = "Hello World! \n\r";
 
-		HAL_StatusTypeDef ret = HAL_UART_Transmit(&huart2, (uint8_t*)msg, strlen(msg), HAL_MAX_DELAY);
+		//HAL_StatusTypeDef ret = HAL_UART_Transmit(&huart2, (uint8_t*)msg, strlen(msg), HAL_MAX_DELAY);
 		// HAL_StatusTypeDef ret = HAL_UART_Transmit(&huart2, msg, strlen(msg), 1);
-		if (ret != HAL_OK)
-		{
-			// UART TX Error
-			HAL_GPIO_WritePin(LED4_GPIO_Port, LED4_Pin, GPIO_PIN_SET);
-		}
+//		if (ret != HAL_OK)
+//		{
+//			// UART TX Error
+//			HAL_GPIO_WritePin(LED4_GPIO_Port, LED4_Pin, GPIO_PIN_SET);
+//		}
 
 
 
@@ -1962,13 +1970,13 @@ uint32_t DoStateUartTx()
 		sprintf(can_msg, "\n\r\n\rTEC = %d,  REC = %d  \n\rLast Error Code = %d \n\rBOFF = %d,  Error Passive = %d,  Error Warning = %d\n\r test = %d",
 				can_tec, can_rec, can_lec, can_boff, can_error_passive, can_error_warning, test);
 
-		ret = HAL_UART_Transmit(&huart2, (uint8_t*)can_msg, strlen(can_msg), HAL_MAX_DELAY);
+		//ret = HAL_UART_Transmit(&huart2, (uint8_t*)can_msg, strlen(can_msg), HAL_MAX_DELAY);
 		// HAL_StatusTypeDef ret = HAL_UART_Transmit(&huart2, msg, strlen(msg), 1);
-		if (ret != HAL_OK)
-		{
-			// UART TX Error
-			HAL_GPIO_WritePin(LED4_GPIO_Port, LED4_Pin, GPIO_PIN_SET);
-		}
+//		if (ret != HAL_OK)
+//		{
+//			// UART TX Error
+//			HAL_GPIO_WritePin(LED4_GPIO_Port, LED4_Pin, GPIO_PIN_SET);
+//		}
 
 	}
 
@@ -2045,6 +2053,7 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
   }
 }
 
+/*
 void ProcessCanMessage()
 {
 	typedef union BytesToType_
@@ -2113,14 +2122,14 @@ void ProcessCanMessage()
 	{
 		uint8_t rops_data = (can_data & 0xFF);
 		sensor_data.feedback_pitch_rops = rops_data;
-		/*
-		if (rops_data == ROPS_ENABLE)
-			sensor_data.feedback_pitch_rops = 1;
-		else if (rops_data == ROPS_DISABLE)
-			sensor_data.feedback_pitch_rops = 0;
-		else
-			sensor_data.feedback_pitch_rops = rops_data;
-		*/
+
+//		if (rops_data == ROPS_ENABLE)
+//			sensor_data.feedback_pitch_rops = 1;
+//		else if (rops_data == ROPS_DISABLE)
+//			sensor_data.feedback_pitch_rops = 0;
+//		else
+//			sensor_data.feedback_pitch_rops = rops_data;
+
 	}
 	else if (pRxHeader.StdId == BACKPLANE_DUMMY_TRAFFIC_MARIO)
 	{
@@ -2131,38 +2140,39 @@ void ProcessCanMessage()
 		// Unknown CAN ID
 	}
 }
+*/
 
-void CAN_ReceiveFifoCallback(CAN_HandleTypeDef* hcan, uint32_t fifo)
-{
-	uint32_t num_messages = HAL_CAN_GetRxFifoFillLevel(hcan, fifo);
-	for (int i = 0; i < num_messages; ++i)
-	{
-		if (HAL_CAN_GetRxMessage(hcan, fifo, &pRxHeader, rxData) != HAL_OK)
-		{
-			Error_Handler();
-		}
+//void CAN_ReceiveFifoCallback(CAN_HandleTypeDef* hcan, uint32_t fifo)
+//{
+//	uint32_t num_messages = HAL_CAN_GetRxFifoFillLevel(hcan, fifo);
+//	for (int i = 0; i < num_messages; ++i)
+//	{
+//		if (HAL_CAN_GetRxMessage(hcan, fifo, &pRxHeader, rxData) != HAL_OK)
+//		{
+//			Error_Handler();
+//		}
+//
+//		ProcessCanMessage();
+//	}
+//}
 
-		ProcessCanMessage();
-	}
-}
-
-void HAL_CAN_RxFifo0MsgPendingCallback(CAN_HandleTypeDef* hcan)
-{
-	HAL_GPIO_TogglePin(LED_CANB_GPIO_Port, LED_CANB_Pin);
-	CAN_ReceiveFifoCallback(hcan, CAN_RX_FIFO0);
-}
-
-void HAL_CAN_RxFifo1MsgPendingCallback(CAN_HandleTypeDef* hcan)
-{
-	HAL_GPIO_TogglePin(LED_CANB_GPIO_Port, LED_CANB_Pin);
-	CAN_ReceiveFifoCallback(hcan, CAN_RX_FIFO1);
-}
-
-void HAL_CAN_ErrorCallback(CAN_HandleTypeDef* hcan)
-{
-	// HAL_GPIO_WritePin(LED_ERROR_GPIO_Port, LED_ERROR_Pin, GPIO_PIN_SET);
-	HAL_GPIO_TogglePin(LED_ERROR_GPIO_Port, LED_ERROR_Pin);
-}
+//void HAL_CAN_RxFifo0MsgPendingCallback(CAN_HandleTypeDef* hcan)
+//{
+//	HAL_GPIO_TogglePin(LED_CANB_GPIO_Port, LED_CANB_Pin);
+//	CAN_ReceiveFifoCallback(hcan, CAN_RX_FIFO0);
+//}
+//
+//void HAL_CAN_RxFifo1MsgPendingCallback(CAN_HandleTypeDef* hcan)
+//{
+//	HAL_GPIO_TogglePin(LED_CANB_GPIO_Port, LED_CANB_Pin);
+//	CAN_ReceiveFifoCallback(hcan, CAN_RX_FIFO1);
+//}
+//
+//void HAL_CAN_ErrorCallback(CAN_HandleTypeDef* hcan)
+//{
+//	// HAL_GPIO_WritePin(LED_ERROR_GPIO_Port, LED_ERROR_Pin, GPIO_PIN_SET);
+//	HAL_GPIO_TogglePin(LED_ERROR_GPIO_Port, LED_ERROR_Pin);
+//}
 
 /*
 void HAL_CAN_RxFifo0MsgPendingCallback(CAN_HandleTypeDef* hcan)
@@ -2207,65 +2217,65 @@ void HAL_CAN_RxFifo0MsgPendingCallback(CAN_HandleTypeDef* hcan)
 }
 */
 
-HAL_StatusTypeDef TransmitCAN(uint32_t id, uint8_t* buf, uint8_t size, uint8_t with_priority)
-{
-	// CAN_TxHeaderTypeDef msg;
-	pTxHeader.StdId = id;
-	pTxHeader.IDE = CAN_ID_STD;
-	pTxHeader.RTR = CAN_RTR_DATA;
-	pTxHeader.DLC = size; // Number of bytes to send
-	pTxHeader.TransmitGlobalTime = DISABLE;
-
-	uint8_t found_mailbox = 0;
-	for (int i = 0; i < 25; ++i)
-	{
-		// Check that mailbox is available for tx
-		if (HAL_CAN_GetTxMailboxesFreeLevel(&hcan1) > 0)
-		{
-			found_mailbox = 1;
-			break;
-		}
-		// Otherwise wait until free mailbox
-		// for (int j = 0; j < 500; ++j) {}
-		delay_us(50);
-	}
-	if (!found_mailbox)
-	{
-		// HAL_GPIO_WritePin(LED_ERROR_GPIO_Port, LED_ERROR_Pin, GPIO_PIN_SET);
-		HAL_GPIO_TogglePin(LED4_GPIO_Port, LED4_Pin);
-	}
-
-	if (with_priority)
-	{
-		// If message is important, make sure no other messages are queud to ensure it will be sent after any other
-		// values that could override it.
-		for (int i = 0; i < 10; ++i)
-		{
-			// Check that all 3 mailboxes are empty
-			if (HAL_CAN_GetTxMailboxesFreeLevel(&hcan1) == 3)
-				break;
-			// Otherwise wait until 3 free mailbox
-			// for (int j = 0; j < 500; ++j) {}
-			delay_us(50);
-		}
-	}
-
-	uint32_t mb;
-	HAL_StatusTypeDef ret = HAL_CAN_AddTxMessage(&hcan1, &pTxHeader, buf, &mb);
-	if (ret != HAL_OK)
-	{
-		HAL_GPIO_WritePin(LED_WARNING_GPIO_Port, LED_WARNING_Pin, GPIO_PIN_SET);
-		return ret;
-	}
-
-	// Successful transmit
-	HAL_GPIO_TogglePin(LED2_GPIO_Port, LED2_Pin);
-
-	// Update the error led if had a successful can write
-	HAL_GPIO_WritePin(LED_WARNING_GPIO_Port, LED_WARNING_Pin, GPIO_PIN_RESET);
-	// ToggleLed(LED_CAN);
-	return ret;
-}
+//HAL_StatusTypeDef TransmitCAN(uint32_t id, uint8_t* buf, uint8_t size, uint8_t with_priority)
+//{
+//	// CAN_TxHeaderTypeDef msg;
+//	pTxHeader.StdId = id;
+//	pTxHeader.IDE = CAN_ID_STD;
+//	pTxHeader.RTR = CAN_RTR_DATA;
+//	pTxHeader.DLC = size; // Number of bytes to send
+//	pTxHeader.TransmitGlobalTime = DISABLE;
+//
+//	uint8_t found_mailbox = 0;
+//	for (int i = 0; i < 25; ++i)
+//	{
+//		// Check that mailbox is available for tx
+//		if (HAL_CAN_GetTxMailboxesFreeLevel(&hcan1) > 0)
+//		{
+//			found_mailbox = 1;
+//			break;
+//		}
+//		// Otherwise wait until free mailbox
+//		// for (int j = 0; j < 500; ++j) {}
+//		delay_us(50);
+//	}
+//	if (!found_mailbox)
+//	{
+//		// HAL_GPIO_WritePin(LED_ERROR_GPIO_Port, LED_ERROR_Pin, GPIO_PIN_SET);
+//		HAL_GPIO_TogglePin(LED4_GPIO_Port, LED4_Pin);
+//	}
+//
+//	if (with_priority)
+//	{
+//		// If message is important, make sure no other messages are queud to ensure it will be sent after any other
+//		// values that could override it.
+//		for (int i = 0; i < 10; ++i)
+//		{
+//			// Check that all 3 mailboxes are empty
+//			if (HAL_CAN_GetTxMailboxesFreeLevel(&hcan1) == 3)
+//				break;
+//			// Otherwise wait until 3 free mailbox
+//			// for (int j = 0; j < 500; ++j) {}
+//			delay_us(50);
+//		}
+//	}
+//
+//	uint32_t mb;
+//	HAL_StatusTypeDef ret = HAL_CAN_AddTxMessage(&hcan1, &pTxHeader, buf, &mb);
+//	if (ret != HAL_OK)
+//	{
+//		HAL_GPIO_WritePin(LED_WARNING_GPIO_Port, LED_WARNING_Pin, GPIO_PIN_SET);
+//		return ret;
+//	}
+//
+//	// Successful transmit
+//	HAL_GPIO_TogglePin(LED2_GPIO_Port, LED2_Pin);
+//
+//	// Update the error led if had a successful can write
+//	HAL_GPIO_WritePin(LED_WARNING_GPIO_Port, LED_WARNING_Pin, GPIO_PIN_RESET);
+//	// ToggleLed(LED_CAN);
+//	return ret;
+//}
 
 
 /* USER CODE END 0 */
