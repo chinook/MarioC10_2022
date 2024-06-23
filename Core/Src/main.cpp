@@ -97,19 +97,19 @@ uint32_t current_state = STATE_INIT;
 
 SensorData sensor_data;
 
-uint32_t wheel_rpm_counter;
-uint32_t rotor_rpm_counter;
-uint32_t rpm_counter_time;
+//uint32_t wheel_rpm_counter;
+//uint32_t rotor_rpm_counter;
+//uint32_t rpm_counter_time;
 
 // Weather station
-uint8_t rx_buff[128];
-uint8_t index_buff;
-uint8_t ws_receive_flag;
+//uint8_t rx_buff[128];
+//uint8_t index_buff;
+//uint8_t ws_receive_flag;
 
-uint8_t aRxBuffer[256];
+//uint8_t aRxBuffer[256];
 
 //uint8_t ws_rx_byte;
-uint8_t ws_rx_byte[4];
+//uint8_t ws_rx_byte[4];
 
 uint8_t timer_50ms_flag;
 uint8_t timer_100ms_flag;
@@ -241,41 +241,41 @@ static float BoundAngleSemiCircle(float angle)
 }
 
 
-float CalcTSR()
-{
-#define PI 3.1415926535f
-	static const float RPM_TO_RADS = 2.0f * PI / 60.0f;
-	float rotor_speed_omega = RPM_TO_RADS * sensor_data.rotor_rpm;
+//float CalcTSR()
+//{
+//#define PI 3.1415926535f
+//	static const float RPM_TO_RADS = 2.0f * PI / 60.0f;
+//	float rotor_speed_omega = RPM_TO_RADS * sensor_data.rotor_rpm;
+//
+//#define KNOTS_TO_MS 0.514444f
+//	float wind_speed_ms = KNOTS_TO_MS * sensor_data.wind_speed;
+//
+//#define PALE_RADIUS 0.918f
+//
+//	float tsr = (PALE_RADIUS * rotor_speed_omega) / wind_speed_ms;
+//	return tsr;
+//}
 
-#define KNOTS_TO_MS 0.514444f
-	float wind_speed_ms = KNOTS_TO_MS * sensor_data.wind_speed;
-
-#define PALE_RADIUS 0.918f
-
-	float tsr = (PALE_RADIUS * rotor_speed_omega) / wind_speed_ms;
-	return tsr;
-}
-
-float CalcPitchAuto()
-{
-	float tsr = CalcTSR();
-
-	float tsr2 = tsr * tsr;
-	float tsr3 = tsr2 * tsr;
-	float tsr4 = tsr2 * tsr2;
-	float tsr5 = tsr4 * tsr;
-	float tsr6 = tsr3 * tsr2;
-
-	float pitch_target = -0.00361082f *  tsr6 +
-						  0.12772891f *  tsr5 -
-						  1.76974117f *  tsr4 +
-						  11.90368681f * tsr3 -
-						  38.19438424f * tsr2 +
-						  43.63402687f * tsr +
-						  4.55041087;
-
-	return pitch_target;
-}
+//float CalcPitchAuto()
+//{
+//	float tsr = CalcTSR();
+//
+//	float tsr2 = tsr * tsr;
+//	float tsr3 = tsr2 * tsr;
+//	float tsr4 = tsr2 * tsr2;
+//	float tsr5 = tsr4 * tsr;
+//	float tsr6 = tsr3 * tsr2;
+//
+//	float pitch_target = -0.00361082f *  tsr6 +
+//						  0.12772891f *  tsr5 -
+//						  1.76974117f *  tsr4 +
+//						  11.90368681f * tsr3 -
+//						  38.19438424f * tsr2 +
+//						  43.63402687f * tsr +
+//						  4.55041087;
+//
+//	return pitch_target;
+//}
 
 
 #define MAX_PITCH_VALUE 4194303
@@ -536,53 +536,53 @@ float ReadLoadcellADC()
 	return (float)adc_result * ADC_TO_LOADCELL;
 }
 
-uint32_t ReadPitchEncoder()
-{
-	// SSI works from 100kHz to about 2MHz
-	uint32_t pitch_data = 0;
-	for(int i = 0; i < 22; ++i)
-	// for(int i = 0; i < 12; ++i)
-	{
-		pitch_data <<= 1;
+//uint32_t ReadPitchEncoder()
+//{
+//	// SSI works from 100kHz to about 2MHz
+//	uint32_t pitch_data = 0;
+//	for(int i = 0; i < 22; ++i)
+//	// for(int i = 0; i < 12; ++i)
+//	{
+//		pitch_data <<= 1;
+//
+//		HAL_GPIO_WritePin(Pitch_Clock_GPIO_Port, Pitch_Clock_Pin, GPIO_PIN_RESET);
+//		// for (int i = 0; i < 100; ++i) {} // Wait 10 us
+//		delay_us(2);
+//
+//		HAL_GPIO_WritePin(Pitch_Clock_GPIO_Port, Pitch_Clock_Pin, GPIO_PIN_SET);
+//		// for (int i = 0; i < 100; ++i) {} // Wait 10 us
+//		delay_us(2);
+//
+//		pitch_data |= HAL_GPIO_ReadPin(Pitch_Data_GPIO_Port, Pitch_Data_Pin);
+//	}
+//
+//  	return pitch_data;
+//}
 
-		HAL_GPIO_WritePin(Pitch_Clock_GPIO_Port, Pitch_Clock_Pin, GPIO_PIN_RESET);
-		// for (int i = 0; i < 100; ++i) {} // Wait 10 us
-		delay_us(2);
-
-		HAL_GPIO_WritePin(Pitch_Clock_GPIO_Port, Pitch_Clock_Pin, GPIO_PIN_SET);
-		// for (int i = 0; i < 100; ++i) {} // Wait 10 us
-		delay_us(2);
-
-		pitch_data |= HAL_GPIO_ReadPin(Pitch_Data_GPIO_Port, Pitch_Data_Pin);
-	}
-
-  	return pitch_data;
-}
-
-uint32_t ReadMastEncoder()
-{
-
-	uint32_t mast_data = 0;
-	for(int i = 0; i < 22; ++i)
-	{
-		mast_data <<= 1;
-
-		HAL_GPIO_WritePin(Mast_Clock_GPIO_Port, Mast_Clock_Pin, GPIO_PIN_RESET);
-		for (int i = 0; i < 20; ++i) {} // Wait 10 us
-		// delay_us(10);
-
-		HAL_GPIO_WritePin(Mast_Clock_GPIO_Port, Mast_Clock_Pin, GPIO_PIN_SET);
-		for (int i = 0; i < 20; ++i) {} // Wait 10 us
-		// delay_us(10);
-
-		mast_data |= HAL_GPIO_ReadPin(Mast_Data_GPIO_Port, Mast_Data_Pin);
-	}
-
-	return mast_data;
-
-	//HAL_GPIO_TogglePin(Mast_Clock_GPIO_Port, Mast_Clock_Pin);
-	//return 0;
-}
+//uint32_t ReadMastEncoder()
+//{
+//
+//	uint32_t mast_data = 0;
+//	for(int i = 0; i < 22; ++i)
+//	{
+//		mast_data <<= 1;
+//
+//		HAL_GPIO_WritePin(Mast_Clock_GPIO_Port, Mast_Clock_Pin, GPIO_PIN_RESET);
+//		for (int i = 0; i < 20; ++i) {} // Wait 10 us
+//		// delay_us(10);
+//
+//		HAL_GPIO_WritePin(Mast_Clock_GPIO_Port, Mast_Clock_Pin, GPIO_PIN_SET);
+//		for (int i = 0; i < 20; ++i) {} // Wait 10 us
+//		// delay_us(10);
+//
+//		mast_data |= HAL_GPIO_ReadPin(Mast_Data_GPIO_Port, Mast_Data_Pin);
+//	}
+//
+//	return mast_data;
+//
+//	//HAL_GPIO_TogglePin(Mast_Clock_GPIO_Port, Mast_Clock_Pin);
+//	//return 0;
+//}
 
 
 void FloatToString(float value, int decimal_precision, unsigned char* val)
@@ -701,7 +701,7 @@ uint32_t DoStateInit()
 {
 	wheel_rpm_counter = 0;
 	rotor_rpm_counter = 0;
-	rpm_counter_time = 0;
+	// rpm_counter_time = 0;
 
 	index_buff = 0;
 	ws_receive_flag = 0;
@@ -723,7 +723,7 @@ uint32_t DoStateInit()
 
 	// Causes strange bug where stm32 is still executing interrupts but not main code ....
 	// Start interrupts
-	HAL_UART_Receive_IT(&huart5, &ws_rx_byte[0], 1);
+	// HAL_UART_Receive_IT(&huart5, &ws_rx_byte[0], 1);
 
 	HAL_TIM_Base_Start_IT(&htim2);
 	HAL_TIM_Base_Start_IT(&htim3);
@@ -1997,61 +1997,61 @@ void DoStateError()
 
 
 /* This callback is called by the HAL_UART_IRQHandler when the given number of bytes are received */
-void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
-{
-  if (huart->Instance == UART5)
-  {
-    // Transmit one byte with 100 ms timeout
-    // HAL_UART_Transmit(&huart5, &byte, 1, 100);
-	//HAL_GPIO_TogglePin(LED3_GPIO_Port, LED3_Pin);
-
-	/*
-	static char buf[128];
-	static uint8_t index_buf = 0;
-	buf[index_buf++] = ws_rx_byte;
-	if (index_buf == 30)
- 	{
-		  buf[index_buf] = 0;
-		  index_buf = 0;
-		  HAL_UART_Transmit(&huart2, buf, strlen(buf), HAL_MAX_DELAY);
-	}
-	*/
-
-	//HAL_UART_Transmit(&huart2, &ws_rx_byte, sizeof(ws_rx_byte), HAL_MAX_DELAY);
-
-	// static char test_buffer[128] = {0};
-	// static uint8_t test_index = 0;
-
-	// rx_buff[index_buff] = ws_rx_byte;
-	//index_buff++;
-
-	rx_buff[index_buff++] = ws_rx_byte[0];
-	if(ws_rx_byte[0] == '\n')
-	{
-		rx_buff[index_buff] = '\0';
-		index_buff = 0;
-		ws_receive_flag = 1;
-		// HAL_UART_Transmit(&huart2, test_buffer, strlen(test_buffer), HAL_MAX_DELAY);
-	}
-
-
-    // Restart interrupt for next byte
-	HAL_StatusTypeDef ret = HAL_UART_Receive_IT(&huart5, &ws_rx_byte[0], 1);
-	if (ret != HAL_OK)
-	{
-		// Do something to reset the UART ?
-		// HAL_GPIO_WritePin(LED_WARNING_GPIO_Port, LED_WARNING_Pin, GPIO_PIN_SET);
-		if (ret == HAL_BUSY)
-		{
-			// Already waiting for bytes ??
-			HAL_GPIO_WritePin(LED_ERROR_GPIO_Port, LED_ERROR_Pin, GPIO_PIN_SET);
-		}
-	}
-
-	HAL_GPIO_WritePin(LED_ERROR_GPIO_Port, LED_ERROR_Pin, GPIO_PIN_RESET);
-	// HAL_GPIO_WritePin(LED_WARNING_GPIO_Port, LED_WARNING_Pin, GPIO_PIN_RESET);
-  }
-}
+//void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
+//{
+//  if (huart->Instance == UART5)
+//  {
+//    // Transmit one byte with 100 ms timeout
+//    // HAL_UART_Transmit(&huart5, &byte, 1, 100);
+//	//HAL_GPIO_TogglePin(LED3_GPIO_Port, LED3_Pin);
+//
+//	/*
+//	static char buf[128];
+//	static uint8_t index_buf = 0;
+//	buf[index_buf++] = ws_rx_byte;
+//	if (index_buf == 30)
+// 	{
+//		  buf[index_buf] = 0;
+//		  index_buf = 0;
+//		  HAL_UART_Transmit(&huart2, buf, strlen(buf), HAL_MAX_DELAY);
+//	}
+//	*/
+//
+//	//HAL_UART_Transmit(&huart2, &ws_rx_byte, sizeof(ws_rx_byte), HAL_MAX_DELAY);
+//
+//	// static char test_buffer[128] = {0};
+//	// static uint8_t test_index = 0;
+//
+//	// rx_buff[index_buff] = ws_rx_byte;
+//	//index_buff++;
+//
+//	rx_buff[index_buff++] = ws_rx_byte[0];
+//	if(ws_rx_byte[0] == '\n')
+//	{
+//		rx_buff[index_buff] = '\0';
+//		index_buff = 0;
+//		ws_receive_flag = 1;
+//		// HAL_UART_Transmit(&huart2, test_buffer, strlen(test_buffer), HAL_MAX_DELAY);
+//	}
+//
+//
+//    // Restart interrupt for next byte
+//	HAL_StatusTypeDef ret = HAL_UART_Receive_IT(&huart5, &ws_rx_byte[0], 1);
+//	if (ret != HAL_OK)
+//	{
+//		// Do something to reset the UART ?
+//		// HAL_GPIO_WritePin(LED_WARNING_GPIO_Port, LED_WARNING_Pin, GPIO_PIN_SET);
+//		if (ret == HAL_BUSY)
+//		{
+//			// Already waiting for bytes ??
+//			HAL_GPIO_WritePin(LED_ERROR_GPIO_Port, LED_ERROR_Pin, GPIO_PIN_SET);
+//		}
+//	}
+//
+//	HAL_GPIO_WritePin(LED_ERROR_GPIO_Port, LED_ERROR_Pin, GPIO_PIN_RESET);
+//	// HAL_GPIO_WritePin(LED_WARNING_GPIO_Port, LED_WARNING_Pin, GPIO_PIN_RESET);
+//  }
+//}
 
 /*
 void ProcessCanMessage()
@@ -3265,7 +3265,7 @@ static void MX_GPIO_Init(void)
 /* USER CODE BEGIN 4 */
 // EXTI Line External Interrupt ISR Handler CallBack
 
-void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
+/*void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
 {
     if(GPIO_Pin == GPIO_PIN_14) // PD_14 -- PB2
     {
@@ -3301,6 +3301,7 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
     }
 
 }
+*/
 /* USER CODE END 4 */
 
 /**
