@@ -20,10 +20,10 @@ void ReadWeatherStation();
 // float ReadLoadcellADC();
 void ReadTorqueLoadcellADC();
 
-float GetWheelRPM();
-float CalcVehicleSpeed(float wheel_rpm);
+void ReadWheelRPM();
+void CalcVehicleSpeed();
 
-float GetRotorRPM();
+void ReadRotorRPM();
 
 uint32_t ReadPitchEncoder();
 uint32_t ReadMastEncoder();

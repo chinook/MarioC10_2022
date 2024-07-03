@@ -39,13 +39,16 @@ int wind_speed_last_idx = 0;
 
 void ReadWeatherStation()
 {
+	if (!ws_receive_flag)
+		return;
+
+	ws_receive_flag = 0;
+
 	static char frame_begin[] = "$IIMWV";
 
 	// static int Led_Toggle=0;
 	// HAL_GPIO_WritePin(LD1_GPIO_Port,LD1_Pin,Led_Toggle);
 	// Led_Toggle=!Led_Toggle;
-
-	HAL_GPIO_TogglePin(LED3_GPIO_Port, LED3_Pin);
 
 
 	__disable_irq();
@@ -54,6 +57,10 @@ void ReadWeatherStation()
 	index_buff = 0;
 
 	static uint8_t ws_message[128] = {0};
+
+	//size_t size_message = sizeof(ws_message);
+	//if (rx_buff[index_buff-1] == '\0')
+	//	size_message -= 1;
 	memcpy(ws_message, rx_buff, sizeof(ws_message));
 
 	__enable_irq();
@@ -87,6 +94,8 @@ void ReadWeatherStation()
 #define KNOTS_TO_MS 0.514444f
 			float wind_speed_ms = KNOTS_TO_MS * wind_speed;
 			sensor_data.wind_speed = wind_speed_ms;
+
+			HAL_GPIO_TogglePin(LED3_GPIO_Port, LED3_Pin);
 		}
 	}
 }
@@ -188,7 +197,7 @@ float ReadLoadcellADC()
 }
 */
 
-float GetWheelRPM()
+void ReadWheelRPM()
 {
 #define RPM_WHEEL_CNT_TIME_INVERSE 2.0f // Same as dividing by 500ms
 #define WHEEL_CNT_PER_ROT 48.0f
@@ -197,18 +206,18 @@ float GetWheelRPM()
 		float wheel_rpm = (float)wheel_rpm_counter * wheel_counter_to_rpm_constant;
 
 		wheel_rpm_counter = 0;
-		return wheel_rpm;
+		sensor_data.wheel_rpm = wheel_rpm;
 }
 
-float CalcVehicleSpeed(float wheel_rpm)
+void CalcVehicleSpeed()
 {
 #define WHEEL_DIAMETER 6.2f;
 	static const float wheel_rpm_to_speed = PI * WHEEL_DIAMETER;
 
-	return wheel_rpm * wheel_rpm_to_speed;
+	sensor_data.vehicle_speed = sensor_data.wheel_rpm * wheel_rpm_to_speed;
 }
 
-float GetRotorRPM()
+void ReadRotorRPM()
 {
 	// Process rpm counters
 #define ROTOR_CNT_PER_ROT 360.0f
@@ -225,10 +234,11 @@ float GetRotorRPM()
 		if (abs(sensor_data.rotor_rpm - rotor_rpm) > 500)
 		{
 			// Ignore
-			return sensor_data.rotor_rpm;
+			// return sensor_data.rotor_rpm;
 		}
+		sensor_data.rotor_rpm = rotor_rpm;
 
-		return rotor_rpm;
+		// return rotor_rpm;
 }
 
 uint32_t ReadPitchEncoder()
@@ -290,7 +300,7 @@ uint32_t ReadPitchEncoder()
 
 // Working Tuesday August 22
 
-#define DUAL_TRANSMISSION 1
+#define DUAL_TRANSMISSION 0
 	//HAL_GPIO_WritePin(Pitch_Clock_GPIO_Port, Pitch_Clock_Pin, GPIO_PIN_SET);
 	// SSI works from 100kHz to about 2MHz
 	uint32_t pitch_data = 0;
@@ -349,7 +359,8 @@ uint32_t ReadPitchEncoder()
 	{
 		if (pitch_data == 0)
 			return 0xFFFFFFFF;
-		return (pitch_data*1024);
+		// return (pitch_data*1024);
+		return pitch_data;
 		// return pitch_data;
 	}
 	else
@@ -455,13 +466,30 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
 	//index_buff++;
 
 	rx_buff[index_buff++] = ws_rx_byte[0];
+	// rx_buff[index_buff++] = ws_rx_byte[1];
+
 	if(ws_rx_byte[0] == '\n')
+	{
+		rx_buff[index_buff++] = '\0';
+		ws_receive_flag = 1;
+	}
+	/*
+	rx_buff[index_buff++] = ws_rx_byte[1];
+	if(ws_rx_byte[1] == '\n')
+	{
+		rx_buff[index_buff++] = '\0';
+		index_buff = 0;
+		ws_receive_flag = 1;
+		// HAL_UART_Transmit(&huart2, test_buffer, strlen(test_buffer), HAL_MAX_DELAY);
+	}*/
+	//rx_buff[index_buff++] = ws_rx_byte[1];
+	/*if(ws_rx_byte[1] == '\n')
 	{
 		rx_buff[index_buff] = '\0';
 		index_buff = 0;
 		ws_receive_flag = 1;
 		// HAL_UART_Transmit(&huart2, test_buffer, strlen(test_buffer), HAL_MAX_DELAY);
-	}
+	}*/
 
 
     // Restart interrupt for next byte

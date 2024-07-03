@@ -58,7 +58,7 @@ float CalcPitchAnglePales(uint8_t bound_angle)
 	static const float PITCH_TO_ANGLE_RATIO = ENCODER_TO_PALES_RATIO * (360.0f / (float)MAX_PITCH_VALUE);
 	float pitch_angle = (float)delta_pitch * PITCH_TO_ANGLE_RATIO;
 
-	pitch_angle += 26.8f;
+	// pitch_angle += 26.8f;
 
 	// Bound angle between -180 and 180 degrees
 	if (bound_angle)
@@ -307,3 +307,40 @@ void SendPitchAngleCmd(float target_pitch)
 		SendPitchCmdCan(nb_steps);
 	}
 }
+
+/*void SendPitchROPSCmd()
+{
+	// Negative because we want pitch to ROPS (but we compute the other direction)
+	float delta_pitch = -CalcDeltaPitch(PITCH_ABSOLUTE_ROPS);
+
+	static const float pitch_to_angle = 360.0f / MAX_PITCH_VALUE;
+	float delta_angle_encoder = delta_pitch * pitch_to_angle;
+
+	static const float angle_mov_per_step_inv = 293.89f / 1.8f;
+	int nb_steps = (int)(delta_angle_encoder * angle_mov_per_step_inv);
+	// static const float angle_mov_per_step_inv = 293.89f / 1.8f;
+	// int nb_steps = (int)(delta_angle_encoder * angle_mov_per_step_inv);
+
+	if(abs(nb_steps) > MAX_STEPS_PER_CMD)
+	{
+		if(nb_steps < 0)
+			nb_steps = -MAX_STEPS_PER_CMD;
+		else
+			nb_steps = MAX_STEPS_PER_CMD;
+	}
+
+	if(pitch_done)
+	{
+		// uint32_t nb_steps_cmd = (int)
+		if (sensor_data.feedback_pitch_rops != 1)
+		{
+			uint32_t rops_cmd = ROPS_ENABLE;
+			TransmitCAN(MARIO_ROPS_CMD, (uint8_t*)&rops_cmd, 4, 0);
+			delay_us(100);
+		}
+
+		TransmitCAN(MARIO_PITCH_CMD, (uint8_t*)&nb_steps, 4, 0);
+		pitch_done = 0;
+		delay_us(100);
+	}
+}*/

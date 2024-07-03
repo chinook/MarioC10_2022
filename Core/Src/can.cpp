@@ -171,7 +171,7 @@ HAL_StatusTypeDef TransmitCAN(uint32_t id, uint8_t* buf, uint8_t size, uint8_t w
 	pTxHeader.TransmitGlobalTime = DISABLE;
 
 	uint8_t found_mailbox = 0;
-	for (int i = 0; i < 25; ++i)
+	for (int i = 0; i < 4; ++i)
 	{
 		// Check that mailbox is available for tx
 		if (HAL_CAN_GetTxMailboxesFreeLevel(&hcan1) > 0)
@@ -181,7 +181,7 @@ HAL_StatusTypeDef TransmitCAN(uint32_t id, uint8_t* buf, uint8_t size, uint8_t w
 		}
 		// Otherwise wait until free mailbox
 		// for (int j = 0; j < 500; ++j) {}
-		delay_us(50);
+		delay_us(2);
 	}
 	if (!found_mailbox)
 	{

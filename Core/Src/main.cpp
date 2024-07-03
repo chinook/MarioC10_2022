@@ -32,6 +32,7 @@
 
 #include "motor_control.h"
 #include "pitch.h"
+#include "sensors.h"
 
 /* USER CODE END Includes */
 
@@ -188,19 +189,19 @@ float CalcPitchAuto();
 //void SendPitchAngleCmd(float target_pitch);
 
 
-HAL_StatusTypeDef ADC_SendI2C(uint8_t addr, uint8_t reg, uint16_t data);
-uint16_t ADC_ReadI2C(uint8_t addr, uint8_t reg);
+//HAL_StatusTypeDef ADC_SendI2C(uint8_t addr, uint8_t reg, uint16_t data);
+//uint16_t ADC_ReadI2C(uint8_t addr, uint8_t reg);
 
-float ReadTorqueADC();
-float ReadLoadcellADC();
+//float ReadTorqueADC();
+//float ReadLoadcellADC();
 
 
-uint32_t ReadPitchEncoder();
-uint32_t ReadMastEncoder();
+//uint32_t ReadPitchEncoder();
+//uint32_t ReadMastEncoder();
 void FloatToString(float value, int decimal_precision, unsigned char* val);
 
-void ProcessCanMessage();
-void CAN_ReceiveFifoCallback(CAN_HandleTypeDef* hcan, uint32_t fifo);
+//void ProcessCanMessage();
+//void CAN_ReceiveFifoCallback(CAN_HandleTypeDef* hcan, uint32_t fifo);
 
 HAL_StatusTypeDef TransmitCAN(uint32_t id, uint8_t* buf, uint8_t size, uint8_t with_priority);
 
@@ -278,11 +279,10 @@ static float BoundAngleSemiCircle(float angle)
 //}
 
 
-#define MAX_PITCH_VALUE 4194303
-#define HALF_MAX_VALUE 2097152
-
-#define PITCH_ABSOLUTE_ZERO 1668850
-#define PITCH_ABSOLUTE_ROPS 2520743
+//#define MAX_PITCH_VALUE 4194303
+//#define HALF_MAX_VALUE 2097152
+//#define PITCH_ABSOLUTE_ZERO 1668850
+//#define PITCH_ABSOLUTE_ROPS 2520743
 
 #define MAX_STEPS_PER_CMD 500
 
@@ -316,43 +316,6 @@ static float CalcDeltaPitch(uint32_t reference_point)
 //		pitch_angle = BoundAngleSemiCircle(pitch_angle);
 //
 //	return pitch_angle;
-//}
-
-//void SendPitchROPSCmd()
-//{
-//	// Negative because we want pitch to ROPS (but we compute the other direction)
-//	float delta_pitch = -CalcDeltaPitch(PITCH_ABSOLUTE_ROPS);
-//
-//	static const float pitch_to_angle = 360.0f / MAX_PITCH_VALUE;
-//	float delta_angle_encoder = delta_pitch * pitch_to_angle;
-//
-//	static const float angle_mov_per_step_inv = 293.89f / 1.8f;
-//	int nb_steps = (int)(delta_angle_encoder * angle_mov_per_step_inv);
-//	// static const float angle_mov_per_step_inv = 293.89f / 1.8f;
-//	// int nb_steps = (int)(delta_angle_encoder * angle_mov_per_step_inv);
-//
-//	if(abs(nb_steps) > MAX_STEPS_PER_CMD)
-//	{
-//		if(nb_steps < 0)
-//			nb_steps = -MAX_STEPS_PER_CMD;
-//		else
-//			nb_steps = MAX_STEPS_PER_CMD;
-//	}
-//
-//	if(pitch_done)
-//	{
-//		// uint32_t nb_steps_cmd = (int)
-//		if (sensor_data.feedback_pitch_rops != 1)
-//		{
-//			uint32_t rops_cmd = ROPS_ENABLE;
-//			TransmitCAN(MARIO_ROPS_CMD, (uint8_t*)&rops_cmd, 4, 0);
-//			delay_us(100);
-//		}
-//
-//		TransmitCAN(MARIO_PITCH_CMD, (uint8_t*)&nb_steps, 4, 0);
-//		pitch_done = 0;
-//		delay_us(100);
-//	}
 //}
 
 //void SendPitchAngleCmd(float target_pitch)
@@ -409,6 +372,17 @@ static float CalcDeltaPitch(uint32_t reference_point)
 //	}
 //}
 
+void SendROPSCmdCan(uint32_t rops_cmd)
+{
+	TransmitCAN(MARIO_ROPS_CMD, (uint8_t*)&rops_cmd, 4, 0);
+	delay_us(100);
+}
+void SendPitchCmdCan(int nb_steps)
+{
+	TransmitCAN(MARIO_PITCH_CMD, (uint8_t*)&nb_steps, 4, 0);
+	pitch_done = 0;
+	delay_us(100);
+}
 
 HAL_StatusTypeDef ADC_SendI2C(uint8_t addr, uint8_t reg, uint16_t data)
 {
@@ -447,117 +421,117 @@ uint16_t ADC_ReadI2C(uint8_t addr, uint8_t reg)
 	return result;
 }
 
-static void ReadTorqueLoadcellADC()
-{
-	ADC_ChannelConfTypeDef sConfigChannel8 = {0};
-	sConfigChannel8.SamplingTime = ADC_SAMPLETIME_15CYCLES;
-	sConfigChannel8.Channel = ADC_CHANNEL_8;
-	sConfigChannel8.Rank = 1;
-	if (HAL_ADC_ConfigChannel(&hadc1, &sConfigChannel8) != HAL_OK)
-	{
-		Error_Handler();
-	}
-	HAL_ADC_Start(&hadc1);
-	HAL_ADC_PollForConversion(&hadc1, 1);
-	uint16_t adc_torque = HAL_ADC_GetValue(&hadc1);
-	HAL_ADC_Stop(&hadc1);
-
-
-	ADC_ChannelConfTypeDef sConfigChannel9 = {0};
-	sConfigChannel9.SamplingTime = ADC_SAMPLETIME_15CYCLES;
-	sConfigChannel9.Channel = ADC_CHANNEL_9;
-	sConfigChannel9.Rank = 1;
-	if (HAL_ADC_ConfigChannel(&hadc1, &sConfigChannel9) != HAL_OK)
-	{
-		Error_Handler();
-	}
-	HAL_ADC_Start(&hadc1);
-	HAL_ADC_PollForConversion(&hadc1, 1);
-	uint16_t adc_loadcell = HAL_ADC_GetValue(&hadc1);
-	HAL_ADC_Stop(&hadc1);
-
-	static const float IAA_VDC_TO_ADC_V = 3.3f / 5.0f;
-	static const float ADC_TO_TORQUE = IAA_VDC_TO_ADC_V * (5.0f/5.095f) * 160.0f / 4095.0f;
-	sensor_data.torque = (float)adc_torque * ADC_TO_TORQUE;
-
-	static const float ADC_TO_LOADCELL = IAA_VDC_TO_ADC_V * (5.0f/5.095f) * 500.0f / 4095.0f;
-	sensor_data.loadcell = (float)adc_loadcell * ADC_TO_LOADCELL;
-}
-
-float ReadTorqueADC()
-{
-
-	ADC_ChannelConfTypeDef sConfig = {0};
-	sConfig.SamplingTime = ADC_SAMPLETIME_15CYCLES;
-	sConfig.Channel = ADC_CHANNEL_8;
-    sConfig.Rank = 1;
-    if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK)
-    {
-    	Error_Handler();
-    }
-
-
-    HAL_ADC_Start(&hadc1);
-
-	HAL_ADC_PollForConversion(&hadc1, 1);
-	uint16_t adc_result = HAL_ADC_GetValue(&hadc1);
-
-	HAL_ADC_Stop(&hadc1);
-
-	static const float IAA_VDC_TO_ADC_V = 3.3f / 5.0f;
-	static const float ADC_TO_TORQUE = IAA_VDC_TO_ADC_V * (5.0f/5.095f) * 160.0f / 4095.0f;
-	return (float)adc_result * ADC_TO_TORQUE;
-	// return adc_result;
-}
-
-float ReadLoadcellADC()
-{
-
-	ADC_ChannelConfTypeDef sConfig = {0};
-	sConfig.SamplingTime = ADC_SAMPLETIME_15CYCLES;
-	sConfig.Channel = ADC_CHANNEL_9;
-	sConfig.Rank = 2;
-
-	if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK)
-	{
-		Error_Handler();
-	}
-
-
-	HAL_ADC_Start(&hadc1);
-
-	HAL_ADC_PollForConversion(&hadc1, 1);
-	uint16_t adc_result = HAL_ADC_GetValue(&hadc1);
-
-	HAL_ADC_Stop(&hadc1);
-
-	static const float IAA_VDC_TO_ADC_V = 3.3f / 5.0f;
-	static const float ADC_TO_LOADCELL = IAA_VDC_TO_ADC_V * (5.0f/5.095f) * 500.0f / 4095.0f;
-	return (float)adc_result * ADC_TO_LOADCELL;
-}
-
-//uint32_t ReadPitchEncoder()
+//static void ReadTorqueLoadcellADC()
 //{
-//	// SSI works from 100kHz to about 2MHz
-//	uint32_t pitch_data = 0;
-//	for(int i = 0; i < 22; ++i)
-//	// for(int i = 0; i < 12; ++i)
+//	ADC_ChannelConfTypeDef sConfigChannel8 = {0};
+//	sConfigChannel8.SamplingTime = ADC_SAMPLETIME_15CYCLES;
+//	sConfigChannel8.Channel = ADC_CHANNEL_8;
+//	sConfigChannel8.Rank = 1;
+//	if (HAL_ADC_ConfigChannel(&hadc1, &sConfigChannel8) != HAL_OK)
 //	{
-//		pitch_data <<= 1;
+//		Error_Handler();
+//	}
+//	HAL_ADC_Start(&hadc1);
+//	HAL_ADC_PollForConversion(&hadc1, 1);
+//	uint16_t adc_torque = HAL_ADC_GetValue(&hadc1);
+//	HAL_ADC_Stop(&hadc1);
 //
-//		HAL_GPIO_WritePin(Pitch_Clock_GPIO_Port, Pitch_Clock_Pin, GPIO_PIN_RESET);
-//		// for (int i = 0; i < 100; ++i) {} // Wait 10 us
-//		delay_us(2);
 //
-//		HAL_GPIO_WritePin(Pitch_Clock_GPIO_Port, Pitch_Clock_Pin, GPIO_PIN_SET);
-//		// for (int i = 0; i < 100; ++i) {} // Wait 10 us
-//		delay_us(2);
+//	ADC_ChannelConfTypeDef sConfigChannel9 = {0};
+//	sConfigChannel9.SamplingTime = ADC_SAMPLETIME_15CYCLES;
+//	sConfigChannel9.Channel = ADC_CHANNEL_9;
+//	sConfigChannel9.Rank = 1;
+//	if (HAL_ADC_ConfigChannel(&hadc1, &sConfigChannel9) != HAL_OK)
+//	{
+//		Error_Handler();
+//	}
+//	HAL_ADC_Start(&hadc1);
+//	HAL_ADC_PollForConversion(&hadc1, 1);
+//	uint16_t adc_loadcell = HAL_ADC_GetValue(&hadc1);
+//	HAL_ADC_Stop(&hadc1);
 //
-//		pitch_data |= HAL_GPIO_ReadPin(Pitch_Data_GPIO_Port, Pitch_Data_Pin);
+//	static const float IAA_VDC_TO_ADC_V = 3.3f / 5.0f;
+//	static const float ADC_TO_TORQUE = IAA_VDC_TO_ADC_V * (5.0f/5.095f) * 160.0f / 4095.0f;
+//	sensor_data.torque = (float)adc_torque * ADC_TO_TORQUE;
+//
+//	static const float ADC_TO_LOADCELL = IAA_VDC_TO_ADC_V * (5.0f/5.095f) * 500.0f / 4095.0f;
+//	sensor_data.loadcell = (float)adc_loadcell * ADC_TO_LOADCELL;
+//}
+
+//float ReadTorqueADC()
+//{
+//
+//	ADC_ChannelConfTypeDef sConfig = {0};
+//	sConfig.SamplingTime = ADC_SAMPLETIME_15CYCLES;
+//	sConfig.Channel = ADC_CHANNEL_8;
+//    sConfig.Rank = 1;
+//    if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK)
+//    {
+//    	Error_Handler();
+//    }
+//
+//
+//    HAL_ADC_Start(&hadc1);
+//
+//	HAL_ADC_PollForConversion(&hadc1, 1);
+//	uint16_t adc_result = HAL_ADC_GetValue(&hadc1);
+//
+//	HAL_ADC_Stop(&hadc1);
+//
+//	static const float IAA_VDC_TO_ADC_V = 3.3f / 5.0f;
+//	static const float ADC_TO_TORQUE = IAA_VDC_TO_ADC_V * (5.0f/5.095f) * 160.0f / 4095.0f;
+//	return (float)adc_result * ADC_TO_TORQUE;
+//	// return adc_result;
+//}
+
+//float ReadLoadcellADC()
+//{
+//
+//	ADC_ChannelConfTypeDef sConfig = {0};
+//	sConfig.SamplingTime = ADC_SAMPLETIME_15CYCLES;
+//	sConfig.Channel = ADC_CHANNEL_9;
+//	sConfig.Rank = 2;
+//
+//	if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK)
+//	{
+//		Error_Handler();
 //	}
 //
-//  	return pitch_data;
+//
+//	HAL_ADC_Start(&hadc1);
+//
+//	HAL_ADC_PollForConversion(&hadc1, 1);
+//	uint16_t adc_result = HAL_ADC_GetValue(&hadc1);
+//
+//	HAL_ADC_Stop(&hadc1);
+//
+//	static const float IAA_VDC_TO_ADC_V = 3.3f / 5.0f;
+//	static const float ADC_TO_LOADCELL = IAA_VDC_TO_ADC_V * (5.0f/5.095f) * 500.0f / 4095.0f;
+//	return (float)adc_result * ADC_TO_LOADCELL;
 //}
+
+uint32_t ReadPitchEncoder2()
+{
+	// SSI works from 100kHz to about 2MHz
+	uint32_t pitch_data = 0;
+	for(int i = 0; i < 22; ++i)
+	// for(int i = 0; i < 12; ++i)
+	{
+		pitch_data <<= 1;
+
+		HAL_GPIO_WritePin(Pitch_Clock_GPIO_Port, Pitch_Clock_Pin, GPIO_PIN_RESET);
+		// for (int i = 0; i < 100; ++i) {} // Wait 10 us
+		delay_us(2);
+
+		HAL_GPIO_WritePin(Pitch_Clock_GPIO_Port, Pitch_Clock_Pin, GPIO_PIN_SET);
+		// for (int i = 0; i < 100; ++i) {} // Wait 10 us
+		delay_us(2);
+
+		pitch_data |= HAL_GPIO_ReadPin(Pitch_Data_GPIO_Port, Pitch_Data_Pin);
+	}
+
+  	return pitch_data;
+}
 
 //uint32_t ReadMastEncoder()
 //{
@@ -723,7 +697,7 @@ uint32_t DoStateInit()
 
 	// Causes strange bug where stm32 is still executing interrupts but not main code ....
 	// Start interrupts
-	// HAL_UART_Receive_IT(&huart5, &ws_rx_byte[0], 1);
+	HAL_UART_Receive_IT(&huart5, &ws_rx_byte[0], 1);
 
 	HAL_TIM_Base_Start_IT(&htim2);
 	HAL_TIM_Base_Start_IT(&htim3);
@@ -752,7 +726,7 @@ uint32_t DoStateInit()
 
 uint32_t DoStateAcquisition()
 {
-	if (ws_receive_flag)
+	/*if (ws_receive_flag)
 	{
 		static char frame_begin[] = "$IIMWV";
 
@@ -795,6 +769,8 @@ uint32_t DoStateAcquisition()
 			}
 		}
 	}
+	*/
+	ReadWeatherStation();
 
 	/*
 	static uint8_t rops_hack = 0;
@@ -848,6 +824,9 @@ uint32_t DoStateAcquisition()
 
 		// Read pitch and mast encoders
 		sensor_data.pitch_encoder = ReadPitchEncoder();
+		sensor_data.pitch_angle = CalcPitchAnglePales(false);
+		// uint32_t pitch_val2 = ReadPitchEncoder2();
+
 		sensor_data.mast_encoder = ReadMastEncoder();
 		//TODO: (Marc) Mast Encoder
 		sensor_data.mast_encoder = 0;
@@ -857,11 +836,11 @@ uint32_t DoStateAcquisition()
 		sensor_data.limit2 = HAL_GPIO_ReadPin(LIMIT2_GPIO_Port, LIMIT2_Pin);
 
 		// Read Torque + Loadcell adc
-#define ADC_RESOLUTION 65536.0f  // (16 bits)
-#define MAX_TORQUE 500.0f  // 500 N.m
-#define MAX_LOADCELL 400.0f  // 400 Lbs
-		static const float torque_adc_factor = MAX_TORQUE / ADC_RESOLUTION;
-		static const float loadcell_adc_factor = MAX_LOADCELL / ADC_RESOLUTION;
+//#define ADC_RESOLUTION 65536.0f  // (16 bits)
+//#define MAX_TORQUE 500.0f  // 500 N.m
+//#define MAX_LOADCELL 400.0f  // 400 Lbs
+		//static const float torque_adc_factor = MAX_TORQUE / ADC_RESOLUTION;
+		//static const float loadcell_adc_factor = MAX_LOADCELL / ADC_RESOLUTION;
 		//sensor_data.torque = ReadTorqueADC() * torque_adc_factor;
 		// sensor_data.torque = 0.0f;
 
@@ -876,11 +855,13 @@ uint32_t DoStateAcquisition()
 	{
 		flag_wheel_rpm_process = 0;
 
-#define RPM_WHEEL_CNT_TIME_INVERSE 2.0f // Same as dividing by 500ms
-#define WHEEL_CNT_PER_ROT 48.0f
-		static const float wheel_counter_to_rpm_constant = (RPM_WHEEL_CNT_TIME_INVERSE / WHEEL_CNT_PER_ROT) * 60.0f;
+//#define RPM_WHEEL_CNT_TIME_INVERSE 2.0f // Same as dividing by 500ms
+//#define WHEEL_CNT_PER_ROT 48.0f
+//		static const float wheel_counter_to_rpm_constant = (RPM_WHEEL_CNT_TIME_INVERSE / WHEEL_CNT_PER_ROT) * 60.0f;
+//
+//		sensor_data.wheel_rpm = (float)wheel_rpm_counter * wheel_counter_to_rpm_constant;
 
-		sensor_data.wheel_rpm = (float)wheel_rpm_counter * wheel_counter_to_rpm_constant;
+		ReadWheelRPM();
 
 		wheel_rpm_counter = 0;
 
@@ -896,17 +877,20 @@ uint32_t DoStateAcquisition()
 		flag_rotor_rpm_process = 0;
 
 		// Process rpm counters
-#define ROTOR_CNT_PER_ROT 360.0f
-#define RPM_ROTOR_CNT_TIME_INVERSE 10.0f // Same as dividing by 100ms
-		static const float rotor_counter_to_rpm_constant = (RPM_ROTOR_CNT_TIME_INVERSE / ROTOR_CNT_PER_ROT) * 60.0f;
+//#define ROTOR_CNT_PER_ROT 360.0f
+//#define RPM_ROTOR_CNT_TIME_INVERSE 10.0f // Same as dividing by 100ms
+		// static const float rotor_counter_to_rpm_constant = (RPM_ROTOR_CNT_TIME_INVERSE / ROTOR_CNT_PER_ROT) * 60.0f;
 
 
 		// sensor_data.wheel_rpm = (float)wheel_rpm_counter * wheel_counter_to_rpm_constant;
 		// sensor_data.wheel_rpm = (float)wheel_rpm_counter;
 		// sensor_data.rotor_rpm = (float)rotor_rpm_counter * rotor_counter_to_rpm_constant;
-		sensor_data.rotor_rpm = (float)rotor_rpm_counter;
+		// sensor_data.rotor_rpm = (float)rotor_rpm_counter;
 
-		rotor_rpm_counter = 0;
+
+		ReadRotorRPM();
+		// sensor_data.rotor_rpm = GetRotorRPM();
+		// rotor_rpm_counter = 0;
 	}
 
 	// Check ROPS
@@ -932,9 +916,9 @@ uint32_t DoStateMotorControl()
 {
 #define NORMAL 0
 #define MANUAL_MAST 0
-#define TEST_PITCH_MANUAL 1
+#define TEST_PITCH_MANUAL 0
 #define TEST_PITCH_AUTO 0
-#define TEST_AUTO_ROPS 0
+#define TEST_AUTO_ROPS 1
 #define ALL_MANUAL 0
 #define ALL_AUTO 0
 
@@ -996,7 +980,7 @@ uint32_t DoStateMotorControl()
 //	// if (b_rops)
 //	//	return STATE_CAN;
 
-	if (MANUAL_MAST)
+	else if (MANUAL_MAST)
 	{
 		uint32_t dir_left = MOTOR_DIRECTION_LEFT;
 		uint32_t dir_right = MOTOR_DIRECTION_RIGHT;
@@ -1105,7 +1089,7 @@ uint32_t DoStateMotorControl()
 
 						++pitch_done_counter;
 
-	#define PITCH_DONE_WAIT_NUM 20
+						static const int PITCH_DONE_WAIT_NUM = 20;
 						if (pitch_done_counter >= PITCH_DONE_WAIT_NUM)
 						{
 							pitch_done_counter = 0;
@@ -1182,7 +1166,7 @@ uint32_t DoStateMotorControl()
 							static uint32_t pitch_done_counter = 0;
 							++pitch_done_counter;
 
-#define PITCH_DONE_WAIT_NUM 6
+							static const int PITCH_DONE_WAIT_NUM = 6;
 							if (pitch_done_counter >= PITCH_DONE_WAIT_NUM)
 							{
 								pitch_done_counter = 0;
@@ -1385,7 +1369,10 @@ uint32_t DoStateCan()
 		delay_us(100);
 
 		float wind_speed_ms = sensor_data.wind_speed;
-		TransmitCAN(MARIO_WIND_SPEED, (uint8_t*)&wind_speed_ms, 4, 0);
+		static float test_test = 0.1f;
+		test_test += 0.1f;
+		// TransmitCAN(MARIO_WIND_SPEED, (uint8_t*)&wind_speed_ms, 4, 0);
+		TransmitCAN(MARIO_WIND_SPEED, (uint8_t*)&test_test, 4, 0);
 		delay_us(100);
 
 		float wheel_rpm_adj = sensor_data.wheel_rpm + 1;
@@ -1417,10 +1404,12 @@ uint32_t DoStateCan()
 		// static float wind_speed = 12.78f;
 		// wind_speed += 0.1f;
 		// TransmitCAN(MARIO_WIND_SPEED, (uint8_t*)&wind_speed, 4, 0);
-#define KNOTS_TO_MS 0.514444f
-		float wind_speed_ms = KNOTS_TO_MS * sensor_data.wind_speed;
-		TransmitCAN(MARIO_WIND_SPEED, (uint8_t*)&wind_speed_ms, 4, 0);
-		delay_us(100);
+//#define KNOTS_TO_MS 0.514444f
+//		float wind_speed_ms = KNOTS_TO_MS * sensor_data.wind_speed;
+
+		//float wind_speed = sensor_data.wind_speed;
+		//TransmitCAN(MARIO_WIND_SPEED, (uint8_t*)&wind_speed, 4, 0);
+		//delay_us(100);
 
 		TransmitCAN(MARIO_WHEEL_RPM, (uint8_t*)&sensor_data.wheel_rpm, 4, 0);
 		delay_us(100);
@@ -1450,10 +1439,13 @@ uint32_t DoStateCan()
 	}
 	*/
 
+
+
 	static float temp = 0.10f;
 
 	// DEBUG DEBUG -- CAN Volant
-	if (flag_can_tx_send) // Sent every 100ms
+
+	//if (flag_can_tx_send) // Sent every 100ms
 	{
 		// temp += 0.10f;
 
@@ -1464,7 +1456,21 @@ uint32_t DoStateCan()
 		float_buffer_test[0] += temp;
 		float_buffer_test[1] += temp;
 		float_buffer_test[2] += temp;
-		float_buffer_test[3] += temp;
+
+		static int rising = 1;
+		if (rising)
+		{
+			float_buffer_test[3] += temp;
+			if (float_buffer_test[3] > 100.0f)
+				rising = false;
+		}
+		else //falling
+		{
+			float_buffer_test[3] -= temp;
+			if (float_buffer_test[3] < 10.0f)
+				rising = true;
+		}
+
 		float_buffer_test[4] += temp;
 		float_buffer_test[5] += temp;
 		float_buffer_test[6] += temp;
@@ -1474,37 +1480,58 @@ uint32_t DoStateCan()
 		uint8_t uint_buffer_index = 0;
 		uint8_t float_buffer_index = 0;
 
+		static float dec_test = 0.0f;
+		dec_test += 0.0001f;
+		if (dec_test >= 0.3f)
+			dec_test = 0.0001f;
 		// uint32_t count = 0;
 
 		// TransmitCAN(MARIO_GEAR_TARGET, (uint8_t*)&uint_buffer_test[uint_buffer_index++], 4, 0);
 		// delay_us(50);
 
-		TransmitCAN(MARIO_PITCH_ANGLE, (uint8_t*)&(float_buffer_test[0]), 4, 0);
-		delay_us(50);
+		// TransmitCAN(MARIO_WIND_SPEED, (uint8_t*)&float_buffer_test[4], 4, 0);
+		float wind_spd = (float)sensor_data.wind_speed + dec_test;
+		TransmitCAN(MARIO_WIND_SPEED, (uint8_t*)&wind_spd, 4, 0);
+		delay_ms(2);
 
-		// TransmitCAN(MARIO_MAST_ANGLE, (uint8_t*)&sensor_data.mast_angle, 4, 0);
-		// delay_us(50);
+		// TransmitCAN(MARIO_PITCH_ANGLE, (uint8_t*)&(float_buffer_test[0]), 4, 0);
+		// TransmitCAN(MARIO_PITCH_ANGLE, (uint8_t*)&sensor_data.pitch_angle, 4, 0);
+		float pitch_enc = (float)sensor_data.pitch_angle + dec_test;
+		// float pitch_enc = (float)sensor_data.pitch_encoder + dec_test;
+		TransmitCAN(MARIO_PITCH_ANGLE, (uint8_t*)&pitch_enc, 4, 0);
+		delay_us(100);
+		delay_ms(2);
 
-		// TransmitCAN(MARIO_MAST_ANGLE, (uint8_t*)&sensor_data.vehicle_speed, 4, 0);
-		// delay_us(50);
+		// sensor_data.pitch_encoder = 2401;
+		float rpm_test = (float)sensor_data.pitch_encoder + dec_test;
+		TransmitCAN(MARIO_ROTOR_RPM, (uint8_t*)&rpm_test, 4, 0);
+		delay_us(100);
+		delay_ms(2);
 
-		TransmitCAN(MARIO_ROTOR_RPM, (uint8_t*)&float_buffer_test[1], 4, 0);
-		delay_us(50);
+		// sensor_data.wheel_rpm = float_buffer_test[2];
+		//TransmitCAN(MARIO_WHEEL_RPM, (uint8_t*)&sensor_data.wheel_rpm, 4, 0);
+		// float pitch2 = (float)sensor_data.pitch_angle * (float)sensor_data.wheel_rpm;
+		// float pitch2 = ((float)(sensor_data.wheel_rpm)+1.0f) * 2.0f;
+		float pitch2 = (float)sensor_data.wheel_rpm + dec_test;
+		TransmitCAN(MARIO_WHEEL_RPM, (uint8_t*)&pitch2, 4, 0);
+		// TransmitCAN(MARIO_WHEEL_RPM, (uint8_t*)&float_buffer_test[2], 4, 0);
+		delay_us(100);
+		delay_ms(2);
 
-		TransmitCAN(MARIO_WHEEL_RPM, (uint8_t*)&float_buffer_test[2], 4, 0);
-		delay_us(50);
+		// TransmitCAN(MARIO_WIND_DIRECTION, (uint8_t*)&float_buffer_test[3], 4, 0);
+		float wind_dir = (float)sensor_data.wind_direction + dec_test;
+		TransmitCAN(MARIO_WIND_DIRECTION, (uint8_t*)&wind_dir, 4, 0);
+		delay_us(100);
+		delay_ms(2);
 
-		TransmitCAN(MARIO_WIND_DIRECTION, (uint8_t*)&float_buffer_test[3], 4, 0);
-		delay_us(50);
+		// delay_ms(10);
 
-		TransmitCAN(MARIO_WIND_SPEED, (uint8_t*)&float_buffer_test[4], 4, 0);
-		delay_us(50);
 
-		TransmitCAN(MARIO_TORQUE, (uint8_t*)&float_buffer_test[5], 4, 0);
-		delay_us(50);
+		//TransmitCAN(MARIO_TORQUE, (uint8_t*)&float_buffer_test[5], 4, 0);
+		//delay_us(5);
 
-		TransmitCAN(MARIO_LOADCELL, (uint8_t*)&float_buffer_test[6], 4, 0);
-		delay_us(50);
+		//TransmitCAN(MARIO_LOADCELL, (uint8_t*)&float_buffer_test[6], 4, 0);
+		//delay_us(5);
 
 		// TODO: (Marc) Batt voltage + Batt current
 		// TODO: (Marc) Limit switch
@@ -1512,24 +1539,20 @@ uint32_t DoStateCan()
 		static const uint8_t mode_test_manual = MOTOR_MODE_MANUAL;
 		static const uint8_t mode_test_automatic = MOTOR_MODE_AUTOMATIC;
 
-		TransmitCAN(MARIO_PITCH_MODE_FEEDBACK, (uint8_t*)&mode_test_manual, 4, 0);
-		delay_us(50);
+		//TransmitCAN(MARIO_PITCH_MODE_FEEDBACK, (uint8_t*)&mode_test_manual, 4, 0);
+		//delay_us(5);
 
-		TransmitCAN(MARIO_MAST_MODE_FEEDBACK, (uint8_t*)&mode_test_automatic, 4, 0);
-		delay_us(50);
+		//TransmitCAN(MARIO_MAST_MODE_FEEDBACK, (uint8_t*)&mode_test_automatic, 4, 0);
+		//delay_us(5);
 
 		// static const uint8_t rops_test = ROPS_ENABLE;
-		static const uint8_t rops_test = 1;
-
-		TransmitCAN(MARIO_ROPS_FEEDBACK, (uint8_t*)&rops_test, 4, 0);
-		delay_us(50);
+		//static const uint8_t rops_test = 1;
+		//TransmitCAN(MARIO_ROPS_FEEDBACK, (uint8_t*)&rops_test, 4, 0);
+		//delay_us(5);
 
 		// Also send the turbine rpm value to the drive motor for ROPS detection
 		// TransmitCAN(MARIO_MOTOR_ROTOR_RPM, (uint8_t*)&sensor_data.rotor_rpm, 4, 0);
 		// delay_us(50);
-
-
-
 
 	}
 
@@ -1547,8 +1570,8 @@ uint32_t DoStateCan()
 		uint8_t uint_buffer_index = 0;
 		uint8_t float_buffer_index = 0;
 
-		TransmitCAN(MARIO_GEAR_TARGET, (uint8_t*)&uint_buffer_test[uint_buffer_index++], 4, 0);
-		delay_us(50);
+		//TransmitCAN(MARIO_GEAR_TARGET, (uint8_t*)&uint_buffer_test[uint_buffer_index++], 4, 0);
+		//delay_us(50);
 
 		TransmitCAN(MARIO_PITCH_ANGLE, (uint8_t*)&float_buffer_test[float_buffer_index++], 4, 0);
 		delay_us(50);

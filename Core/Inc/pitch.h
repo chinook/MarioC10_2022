@@ -11,20 +11,22 @@
 #include "stm32f4xx_hal.h"
 
 
-#define MAX_PITCH_VALUE 4194303
-//#define MAX_PITCH_VALUE 4095
-#define HALF_MAX_VALUE 2097152
-//#define HALF_MAX_VALUE 2047
+//#define MAX_PITCH_VALUE 4194303
+#define MAX_PITCH_VALUE 4095
+//#define HALF_MAX_VALUE 2097152
+#define HALF_MAX_VALUE 2047
 
 //#define PITCH_ABSOLUTE_ZERO 1668850
 //#define PITCH_ABSOLUTE_ROPS 2520743
 //#define PITCH_ABSOLUTE_ZERO (580*1024)
 //#define PITCH_ABSOLUTE_ZERO (1689*1024)
-#define PITCH_ABSOLUTE_ZERO 2707460
+// #define PITCH_ABSOLUTE_ZERO 2707460
+#define PITCH_ABSOLUTE_ZERO 1170
 // #define PITCH_ABSOLUTE_ROPS (2500*1024)
 // #define PITCH_ABSOLUTE_ROPS (1260*1024)
 // #define PITCH_ABSOLUTE_ROPS (2209*1024)
-#define PITCH_ABSOLUTE_ROPS 1856510
+// #define PITCH_ABSOLUTE_ROPS 1856510
+#define PITCH_ABSOLUTE_ROPS 2000
 
 #define MAX_STEPS_PER_CMD 500
 
@@ -41,6 +43,8 @@ void VerifyRopsCmd();
 void SendPitchTargetCmd(uint32_t target_pitch_abs);
 void SendPitchROPSCmd();
 void SendPitchAngleCmd(float target_pitch);
+
+// void SendPitchROPSCmd();
 
 
 #endif /* _PITCH_H_ */
