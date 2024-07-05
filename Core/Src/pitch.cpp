@@ -17,8 +17,6 @@
 
 
 float BoundAngleSemiCircle(float angle);
-
-
 float CalcDeltaPitch(uint32_t reference_point);
 
 
@@ -88,7 +86,6 @@ float CalcPitchAnglePales(uint32_t abs_target, uint8_t bound_angle)
 	return pitch_angle;
 }
 
-
 float CalcTSR()
 {
 	static const float RPM_TO_RADS = 2.0f * PI / 60.0f;
@@ -112,7 +109,11 @@ float CalcPitchAuto()
 #define ALGO_C11 1
 #define ALGO_C10 0
 
-	float tsr = CalcTSR();
+	//float tsr = CalcTSR();
+	// float tsr = SimulateTSR();
+	float tsr = sensor_data.tsr;
+	tsr = 6;
+
 	// -440.017 + 435.068*x + 196.501*x^2 - 487.301*x^3 + 324.152*x^4 - 119.048*x^5 + 27.5701*x^6 - 4.19495*x^7 + 0.419413*x^8 - 0.0265633*x^9 + 0.000967116*x^10 - 1.5428e-5*x^11
 
 	if (ALGO_C10)
@@ -261,7 +262,7 @@ void SendPitchAngleCmd(float target_pitch)
 	// Calculate current pitch angle from ABSOLUTE ZERO
 	// float current_pitch_angle_pales = (3.0f / 2.0f) * pitch_to_angle(current_pitch);
 	float angle_pales = CalcPitchAnglePales(FALSE);
-	angle_pales = BoundAngleSemiCircle(angle_pales);
+	// angle_pales = BoundAngleSemiCircle(angle_pales);
 
 	// Calculate the delta pitch angle for the stepper motor
 	float delta_angle_pales = target_angle_pales - angle_pales;
@@ -279,7 +280,8 @@ void SendPitchAngleCmd(float target_pitch)
 	// Set a maximum to the number of steps so that we don't overshoot too much
 	// Plus, its safer in case of angle error
 	//if(abs(nb_steps) > 300) nb_steps = 300;
-	//nb_steps *= -1;
+	//if (nb_steps < 0)
+		// nb_steps *= -1;
 
 
 	if(abs(nb_steps) > MAX_STEPS_PER_CMD)

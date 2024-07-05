@@ -103,6 +103,7 @@ typedef struct SensorData_{
 	float pitch_angle;
 	float mast_angle;
 	float vehicle_speed;
+	float tsr;
 }SensorData;
 
 extern SensorData sensor_data;

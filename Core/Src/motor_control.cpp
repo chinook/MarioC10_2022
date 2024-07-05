@@ -15,9 +15,10 @@ void DoPitchControl()
 {
 	if (sensor_data.feedback_pitch_mode == MOTOR_MODE_AUTOMATIC)
 	{
-		float new_pitch_target = CalcPitchAuto();
+		// float new_pitch_target = CalcPitchAuto();
+		float new_pitch_target = 0;
 		// new_pitch_target = 0.0f;
-		pitch_auto_target = new_pitch_target;
+		float pitch_auto_target = new_pitch_target;
 		// VerifyPitchCmd();
 
 		// if (abs(new_pitch_target - pitch_auto_target) > PITCH_UPDATE_THRESHOLD)

@@ -228,6 +228,10 @@ void ReadRotorRPM()
 		// sensor_data.wheel_rpm = (float)wheel_rpm_counter;
 		// sensor_data.rotor_rpm = (float)rotor_rpm_counter * rotor_counter_to_rpm_constant;
 		float rotor_rpm = (float)rotor_rpm_counter;
+		if (rotor_rpm > 0)
+		{
+			rotor_rpm_counter = 0;
+		}
 
 		rotor_rpm_counter = 0;
 

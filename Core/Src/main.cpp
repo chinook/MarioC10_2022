@@ -510,6 +510,14 @@ uint16_t ADC_ReadI2C(uint8_t addr, uint8_t reg)
 //	return (float)adc_result * ADC_TO_LOADCELL;
 //}
 
+float SimulateTSR()
+{
+	float random = ((float) rand()) / (float) RAND_MAX;
+	float diff = 40.0f;
+	float r = random * diff;
+	return r;
+}
+
 uint32_t ReadPitchEncoder2()
 {
 	// SSI works from 100kHz to about 2MHz
@@ -891,6 +899,12 @@ uint32_t DoStateAcquisition()
 		ReadRotorRPM();
 		// sensor_data.rotor_rpm = GetRotorRPM();
 		// rotor_rpm_counter = 0;
+		static int tsr_counter = 0;
+		if (tsr_counter++ >= 20)
+		{
+			tsr_counter = 0;
+			sensor_data.tsr = SimulateTSR();
+		}
 	}
 
 	// Check ROPS
@@ -906,6 +920,16 @@ uint32_t DoStateAcquisition()
 
 uint32_t DoStateCheckROPS()
 {
+#define ROTOR_RPM_ROPS 20
+	if (sensor_data.rotor_rpm > ROTOR_RPM_ROPS)
+	{
+		b_rops = 1;
+	}
+	else
+	{
+		b_rops = 0;
+	}
+
 	if (b_rops)
 		return STATE_ROPS;
 	else
@@ -918,9 +942,9 @@ uint32_t DoStateMotorControl()
 #define MANUAL_MAST 0
 #define TEST_PITCH_MANUAL 0
 #define TEST_PITCH_AUTO 0
-#define TEST_AUTO_ROPS 1
+#define TEST_AUTO_ROPS 0
 #define ALL_MANUAL 0
-#define ALL_AUTO 0
+#define ALL_AUTO 1
 
 	if (b_rops)
 	{
@@ -932,9 +956,9 @@ uint32_t DoStateMotorControl()
 		// TODO: Code compe
 		if (!b_rops)
 		{
-			DoPitchControl();
+			//DoPitchControl();
 			// VerifyPitchTargetCmd(PITCH_ABSOLUTE_ZERO);
-			DoMastControl();
+			//DoMastControl();
 		}
 		else
 		{
@@ -1145,12 +1169,12 @@ uint32_t DoStateMotorControl()
 			{
 				if (target_drapeau)
 				{
-#define MAX_ERROR_ROPS 10000
-					/*if (abs(sensor_data.pitch_encoder - PITCH_ABSOLUTE_ROPS) > MAX_ERROR_ROPS)
+#define MAX_ERROR_ROPS 100
+					if (std::fabs((float)sensor_data.pitch_encoder - (float)PITCH_ABSOLUTE_ROPS) > (float)MAX_ERROR_ROPS)
 					{
 						SendPitchROPSCmd();
 					}
-					*/
+
 				}
 				else
 				{
@@ -1264,7 +1288,6 @@ uint32_t DoStateMotorControl()
 
 uint32_t DoStateROPS()
 {
-	return STATE_ACQUISITION;
 
 	// Stay in ROPS
 	while (b_rops)
@@ -1304,14 +1327,14 @@ uint32_t DoStateROPS()
 		}
 
 		// Check angle is at rops
-#define MAX_ERROR_ROPS 10000
+// #define MAX_ERROR_ROPS 80
 		// TODO: (Marc) Will not work if value loops around the zero, need proper bounds checking
-		/*
-		if (abs(sensor_data.pitch_encoder - PITCH_ABSOLUTE_ROPS) > MAX_ERROR_ROPS)
+
+		if (std::fabs(sensor_data.pitch_encoder - PITCH_ABSOLUTE_ROPS) > MAX_ERROR_ROPS)
 		{
-			/SendPitchROPSCmd();
+			SendPitchROPSCmd();
 		}
-		*/
+
 
 		DoStateAcquisition();
 		DoStateMotorControl();
@@ -1319,6 +1342,8 @@ uint32_t DoStateROPS()
 		DoStateCan();
 		DoStateDataLogging();
 		DoStateUartTx();
+
+		DoStateCheckROPS();
 	}
 
 	// Exit ROPS state
@@ -1445,7 +1470,7 @@ uint32_t DoStateCan()
 
 	// DEBUG DEBUG -- CAN Volant
 
-	//if (flag_can_tx_send) // Sent every 100ms
+	if (flag_can_tx_send) // Sent every 100ms
 	{
 		// temp += 0.10f;
 
@@ -1489,6 +1514,11 @@ uint32_t DoStateCan()
 		// TransmitCAN(MARIO_GEAR_TARGET, (uint8_t*)&uint_buffer_test[uint_buffer_index++], 4, 0);
 		// delay_us(50);
 
+		//float wind_spd = (float)sensor_data.wind_speed + dec_test;
+		float pitch_raw = (float)sensor_data.pitch_encoder + dec_test;
+		TransmitCAN(MARIO_MAST_ANGLE, (uint8_t*)&pitch_raw, 4, 0);
+		delay_ms(2);
+
 		// TransmitCAN(MARIO_WIND_SPEED, (uint8_t*)&float_buffer_test[4], 4, 0);
 		float wind_spd = (float)sensor_data.wind_speed + dec_test;
 		TransmitCAN(MARIO_WIND_SPEED, (uint8_t*)&wind_spd, 4, 0);
@@ -1496,15 +1526,23 @@ uint32_t DoStateCan()
 
 		// TransmitCAN(MARIO_PITCH_ANGLE, (uint8_t*)&(float_buffer_test[0]), 4, 0);
 		// TransmitCAN(MARIO_PITCH_ANGLE, (uint8_t*)&sensor_data.pitch_angle, 4, 0);
+
+
+		// float pitch_enc = (float)sensor_data.rotor_rpm + dec_test;
 		float pitch_enc = (float)sensor_data.pitch_angle + dec_test;
-		// float pitch_enc = (float)sensor_data.pitch_encoder + dec_test;
 		TransmitCAN(MARIO_PITCH_ANGLE, (uint8_t*)&pitch_enc, 4, 0);
 		delay_us(100);
 		delay_ms(2);
 
 		// sensor_data.pitch_encoder = 2401;
-		float rpm_test = (float)sensor_data.pitch_encoder + dec_test;
-		TransmitCAN(MARIO_ROTOR_RPM, (uint8_t*)&rpm_test, 4, 0);
+		// float rpm_test = (float)sensor_data.pitch_encoder + dec_test;
+		float rpm_raw = (float)sensor_data.rotor_rpm + dec_test;
+		if (rpm_raw > 10)
+		{
+			delay_us(10);
+		}
+		// float rpm_raw = 90.45f;
+		TransmitCAN(MARIO_ROTOR_RPM, (uint8_t*)&rpm_raw, 4, 0);
 		delay_us(100);
 		delay_ms(2);
 
@@ -3201,7 +3239,8 @@ static void MX_GPIO_Init(void)
                            Wheel_RPM_Pin */
   GPIO_InitStruct.Pin = LIMIT1_Pin|LIMIT2_Pin|LORA_INT_Pin|Rotor_RPM_Pin
                           |Wheel_RPM_Pin;
-  GPIO_InitStruct.Mode = GPIO_MODE_IT_RISING;
+  // GPIO_InitStruct.Mode = GPIO_MODE_IT_RISING;
+  GPIO_InitStruct.Mode = GPIO_MODE_IT_FALLING;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   HAL_GPIO_Init(GPIOE, &GPIO_InitStruct);
 
