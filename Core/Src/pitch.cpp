@@ -280,8 +280,8 @@ void SendPitchAngleCmd(float target_pitch)
 	// Set a maximum to the number of steps so that we don't overshoot too much
 	// Plus, its safer in case of angle error
 	//if(abs(nb_steps) > 300) nb_steps = 300;
-	if (nb_steps < 0)
-		nb_steps *= -1;
+	//if (nb_steps < 0)
+	//	nb_steps *= -1;
 
 
 	if(abs(nb_steps) > MAX_STEPS_PER_CMD)
