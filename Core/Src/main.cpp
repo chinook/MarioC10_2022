@@ -943,8 +943,8 @@ uint32_t DoStateMotorControl()
 #define TEST_PITCH_MANUAL 0
 #define TEST_PITCH_AUTO 0
 #define TEST_AUTO_ROPS 0
-#define ALL_MANUAL 0
-#define ALL_AUTO 1
+#define ALL_MANUAL 1
+#define ALL_AUTO 0
 
 	if (b_rops)
 	{
