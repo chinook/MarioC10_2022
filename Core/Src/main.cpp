@@ -939,11 +939,11 @@ uint32_t DoStateCheckROPS()
 uint32_t DoStateMotorControl()
 {
 #define NORMAL 0
-#define MANUAL_MAST 0
+#define MANUAL_MAST 1
 #define TEST_PITCH_MANUAL 0
 #define TEST_PITCH_AUTO 0
 #define TEST_AUTO_ROPS 0
-#define ALL_MANUAL 1
+#define ALL_MANUAL 0
 #define ALL_AUTO 0
 
 	if (b_rops)
@@ -1006,6 +1006,19 @@ uint32_t DoStateMotorControl()
 
 	else if (MANUAL_MAST)
 	{
+		if (sensor_data.feedback_pitch_mode != MOTOR_MODE_MANUAL)
+		{
+			uint32_t pitch_mode = MOTOR_MODE_MANUAL;
+			TransmitCAN(MARIO_PITCH_MODE_CMD, (uint8_t*)&pitch_mode, 4, 0);
+			delay_us(100);
+		}
+		if (sensor_data.feedback_mast_mode != MOTOR_MODE_MANUAL)
+		{
+			uint32_t mast_mode = MOTOR_MODE_MANUAL;
+			TransmitCAN(MARIO_MAST_MODE_CMD, (uint8_t*)&mast_mode, 4, 0);
+			delay_us(100);
+		}
+
 		uint32_t dir_left = MOTOR_DIRECTION_LEFT;
 		uint32_t dir_right = MOTOR_DIRECTION_RIGHT;
 		uint32_t dir_stop = MOTOR_DIRECTION_STOP;
