@@ -24,7 +24,7 @@
 
 // WTF, value is changing sometimes
 //#define PITCH_ABSOLUTE_ZERO 3870
-#define PITCH_ABSOLUTE_ZERO 1016
+#define PITCH_ABSOLUTE_ZERO 2133
 
 // #define PITCH_ABSOLUTE_ROPS (2500*1024)
 // #define PITCH_ABSOLUTE_ROPS (1260*1024)

@@ -56,7 +56,7 @@ float CalcPitchAnglePales(uint8_t bound_angle)
 	static const float PITCH_TO_ANGLE_RATIO = ENCODER_TO_PALES_RATIO * (360.0f / (float)MAX_PITCH_VALUE);
 	float pitch_angle = (float)delta_pitch * PITCH_TO_ANGLE_RATIO;
 
-	// pitch_angle += 26.8f;
+	pitch_angle += 27.5f;
 
 	// Bound angle between -180 and 180 degrees
 	if (bound_angle)

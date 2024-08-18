@@ -831,7 +831,7 @@ uint32_t DoStateAcquisition()
 		flag_acq_interval = 0;
 
 		// Read pitch and mast encoders
-		sensor_data.pitch_encoder = ReadPitchEncoder();
+	sensor_data.pitch_encoder = ReadPitchEncoder();
 		sensor_data.pitch_angle = CalcPitchAnglePales(false);
 		// uint32_t pitch_val2 = ReadPitchEncoder2();
 
@@ -920,7 +920,7 @@ uint32_t DoStateAcquisition()
 
 uint32_t DoStateCheckROPS()
 {
-#define ROTOR_RPM_ROPS 20
+#define ROTOR_RPM_ROPS 1200
 	if (sensor_data.rotor_rpm > ROTOR_RPM_ROPS)
 	{
 		b_rops = 1;
@@ -943,8 +943,8 @@ uint32_t DoStateMotorControl()
 #define TEST_PITCH_MANUAL 0
 #define TEST_PITCH_AUTO 0
 #define TEST_AUTO_ROPS 0
-#define ALL_MANUAL 0
-#define ALL_AUTO 1
+#define ALL_MANUAL 1
+#define ALL_AUTO 0
 
 	if (b_rops)
 	{
@@ -2449,7 +2449,7 @@ int main(void)
 
   while (1)
   {
-	  delay_us(100);
+	  //delay_us(100);
 	  // HAL_Delay(100);
 	  // uint32_t dir = 0x200;
 	  //TransmitCAN(MARIO_PITCH_MANUAL_CMD, (uint8_t*)&dir, 4, 0);
