@@ -1,6 +1,7 @@
 
 
 #include "can.h"
+#include "main.h"
 
 #include "stm32f4xx_hal.h"
 
@@ -219,4 +220,139 @@ HAL_StatusTypeDef TransmitCAN(uint32_t id, uint8_t* buf, uint8_t size, uint8_t w
 	HAL_GPIO_WritePin(LED_WARNING_GPIO_Port, LED_WARNING_Pin, GPIO_PIN_RESET);
 	// ToggleLed(LED_CAN);
 	return ret;
+}
+
+
+/**
+  * @brief CAN1 Initialization Function
+  * @param None
+  * @retval None
+  */
+void MX_CAN1_Init(void)
+{
+
+  /* USER CODE BEGIN CAN1_Init 0 */
+
+  /* USER CODE END CAN1_Init 0 */
+
+  /* USER CODE BEGIN CAN1_Init 1 */
+
+  /* USER CODE END CAN1_Init 1 */
+  hcan1.Instance = CAN1;
+  hcan1.Init.Prescaler = 12;
+  hcan1.Init.Mode = CAN_MODE_NORMAL;
+  hcan1.Init.SyncJumpWidth = CAN_SJW_3TQ;
+  hcan1.Init.TimeSeg1 = CAN_BS1_11TQ;
+  hcan1.Init.TimeSeg2 = CAN_BS2_4TQ;
+  hcan1.Init.TimeTriggeredMode = DISABLE;
+  hcan1.Init.AutoBusOff = ENABLE;
+  hcan1.Init.AutoWakeUp = DISABLE;
+  hcan1.Init.AutoRetransmission = DISABLE;
+  hcan1.Init.ReceiveFifoLocked = DISABLE;
+  hcan1.Init.TransmitFifoPriority = ENABLE;
+  if (HAL_CAN_Init(&hcan1) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN CAN1_Init 2 */
+
+  /*
+  CAN_FilterTypeDef filter_fifo0;
+      	// All common bits go into the ID register
+      filter_fifo0.FilterIdHigh = MARIO_FIFO0_RX_FILTER_ID_HIGH;
+      filter_fifo0.FilterIdLow = MARIO_FIFO0_RX_FILTER_ID_LOW;
+
+      	// Which bits to compare for filter
+      filter_fifo0.FilterMaskIdHigh = MARIO_FIFO0_RX_FILTER_MASK_HIGH;
+      filter_fifo0.FilterMaskIdLow = MARIO_FIFO0_RX_FILTER_MASK_LOW;
+
+      filter_fifo0.FilterFIFOAssignment = CAN_FILTER_FIFO0;
+      filter_fifo0.FilterBank = 18; // Which filter to use from the assigned ones
+      filter_fifo0.FilterMode = CAN_FILTERMODE_IDMASK;
+      filter_fifo0.FilterScale = CAN_FILTERSCALE_32BIT;
+      filter_fifo0.FilterActivation = CAN_FILTER_ENABLE;
+      filter_fifo0.SlaveStartFilterBank = 20; // How many filters to assign to CAN1
+  	if (HAL_CAN_ConfigFilter(&hcan1, &filter_fifo0) != HAL_OK)
+  	{
+  	  Error_Handler();
+  	}
+  	*/
+/*
+    CAN_FilterTypeDef filter_all;
+    	// All common bits go into the ID register
+    filter_all.FilterIdHigh = 0x0000;
+    filter_all.FilterIdLow = 0x0000;
+
+    	// Which bits to compare for filter
+    filter_all.FilterMaskIdHigh = 0x0000;
+    filter_all.FilterMaskIdLow = 0x0000;
+
+    filter_all.FilterFIFOAssignment = CAN_FILTER_FIFO0;
+    filter_all.FilterBank = 18; // Which filter to use from the assigned ones
+    filter_all.FilterMode = CAN_FILTERMODE_IDMASK;
+    filter_all.FilterScale = CAN_FILTERSCALE_32BIT;
+    filter_all.FilterActivation = CAN_FILTER_ENABLE;
+    filter_all.SlaveStartFilterBank = 20; // How many filters to assign to CAN1
+	if (HAL_CAN_ConfigFilter(&hcan1, &filter_all) != HAL_OK)
+	{
+	  Error_Handler();
+	}
+*/
+
+
+  	CAN_FilterTypeDef sf_fifo0;
+  	// All common bits go into the ID register
+  	sf_fifo0.FilterIdHigh = MARIO_FIFO0_RX_FILTER_ID_HIGH;
+  	sf_fifo0.FilterIdLow = MARIO_FIFO0_RX_FILTER_ID_LOW;
+
+  	// Which bits to compare for filter
+  	sf_fifo0.FilterMaskIdHigh = 0x0000;
+  	sf_fifo0.FilterMaskIdLow = (MARIO_FIFO0_RX_FILTER_MASK_LOW & 0x07FF);
+
+  	sf_fifo0.FilterFIFOAssignment = CAN_FILTER_FIFO0;
+  	sf_fifo0.FilterBank = 2; // Which filter to use from the assigned ones
+  	sf_fifo0.FilterMode = CAN_FILTERMODE_IDMASK;
+  	sf_fifo0.FilterScale = CAN_FILTERSCALE_32BIT;
+  	sf_fifo0.FilterActivation = CAN_FILTER_ENABLE;
+  	sf_fifo0.SlaveStartFilterBank = 20; // How many filters to assign to CAN1
+  	if (HAL_CAN_ConfigFilter(&hcan1, &sf_fifo0) != HAL_OK)
+  	{
+  	  Error_Handler();
+  	}
+
+
+  	CAN_FilterTypeDef sf_fifo1;
+  	// All common bits go into the ID register
+  	sf_fifo1.FilterIdHigh = MARIO_FIFO1_RX_FILTER_ID_HIGH;
+  	sf_fifo1.FilterIdLow = MARIO_FIFO1_RX_FILTER_ID_LOW;
+
+  	// Which bits to compare for filter
+  	sf_fifo1.FilterMaskIdHigh = 0x0000;
+  	sf_fifo1.FilterMaskIdLow = (MARIO_FIFO1_RX_FILTER_MASK_LOW & 0x07FF);
+
+  	sf_fifo1.FilterFIFOAssignment = CAN_FILTER_FIFO1;
+  	sf_fifo1.FilterBank = 3; // Which filter to use from the assigned ones
+  	sf_fifo1.FilterMode = CAN_FILTERMODE_IDMASK;
+  	sf_fifo1.FilterScale = CAN_FILTERSCALE_32BIT;
+  	sf_fifo1.FilterActivation = CAN_FILTER_ENABLE;
+  	sf_fifo1.SlaveStartFilterBank = 20; // How many filters to assign to CAN1
+  	if (HAL_CAN_ConfigFilter(&hcan1, &sf_fifo1) != HAL_OK)
+  	{
+  	  Error_Handler();
+  	}
+
+
+  if (HAL_CAN_Start(&hcan1) != HAL_OK)
+  	{
+  		Error_Handler();
+  	}
+  	// if (HAL_CAN_ActivateNotification(&hcan1, CAN_IT_RX_FIFO0_MSG_PENDING | CAN_IT_RX_FIFO1_MSG_PENDING | CAN_IT_BUSOFF | CAN_IT_ERROR | CAN_IT_ERROR_WARNING | CAN_IT_ERROR_PASSIVE) != HAL_OK)
+    if (HAL_CAN_ActivateNotification(&hcan1, CAN_IT_RX_FIFO0_MSG_PENDING | CAN_IT_RX_FIFO1_MSG_PENDING) != HAL_OK)
+  	// if (HAL_CAN_ActivateNotification(&hcan1, CAN_IT_RX_FIFO0_MSG_PENDING) != HAL_OK)
+  	{
+  		Error_Handler();
+  	}
+
+  /* USER CODE END CAN1_Init 2 */
+
 }

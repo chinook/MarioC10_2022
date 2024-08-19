@@ -56,7 +56,7 @@ float CalcPitchAnglePales(uint8_t bound_angle)
 	static const float PITCH_TO_ANGLE_RATIO = ENCODER_TO_PALES_RATIO * (360.0f / (float)MAX_PITCH_VALUE);
 	float pitch_angle = (float)delta_pitch * PITCH_TO_ANGLE_RATIO;
 
-	pitch_angle += 27.5f;
+	pitch_angle += 27.5f - 180.0f;
 
 	// Bound angle between -180 and 180 degrees
 	if (bound_angle)
@@ -67,24 +67,6 @@ float CalcPitchAnglePales(uint8_t bound_angle)
 	return pitch_angle;
 }
 
-float CalcPitchAnglePales(uint32_t abs_target, uint8_t bound_angle)
-{
-	// float delta_pitch = CalcDeltaPitch(PITCH_ABSOLUTE_ZERO);
-	int32_t delta_pitch = (abs_target - PITCH_ABSOLUTE_ZERO);
-
-	static const float PITCH_TO_ANGLE_RATIO = ENCODER_TO_PALES_RATIO * (360.0f / (float)MAX_PITCH_VALUE);
-	float pitch_angle = (float)delta_pitch * PITCH_TO_ANGLE_RATIO;
-
-	pitch_angle += 26.8f;
-
-	// Bound angle between -180 and 180 degrees
-	if (bound_angle)
-		pitch_angle = BoundAngleSemiCircle(pitch_angle);
-
-	// float bounded_pitch_angle = BoundAngleSemiCircle(pitch_angle);
-
-	return pitch_angle;
-}
 
 float CalcTSR()
 {
@@ -98,7 +80,9 @@ float CalcTSR()
 
 	if (abs(wind_speed_ms) < MIN_EPSILON)
 		return 0.0f;
+
 	float tsr = (PALE_RADIUS * rotor_speed_omega) / wind_speed_ms;
+
 	if (tsr < MIN_EPSILON)
 		return 0.0f;
 	return tsr;
@@ -107,43 +91,28 @@ float CalcTSR()
 float CalcPitchAuto()
 {
 #define ALGO_C11 1
-#define ALGO_C10 0
 
-	//float tsr = CalcTSR();
-	// float tsr = SimulateTSR();
-	float tsr = sensor_data.tsr;
-	tsr = 6;
+	float tsr = CalcTSR();
 
-	// -440.017 + 435.068*x + 196.501*x^2 - 487.301*x^3 + 324.152*x^4 - 119.048*x^5 + 27.5701*x^6 - 4.19495*x^7 + 0.419413*x^8 - 0.0265633*x^9 + 0.000967116*x^10 - 1.5428e-5*x^11
-
-	if (ALGO_C10)
+	if (ALGO_C11)
 	{
-		float tsr2 = tsr * tsr;
-		float tsr3 = tsr2 * tsr;
-		float tsr4 = tsr2 * tsr2;
-		float tsr5 = tsr4 * tsr;
-		float tsr6 = tsr3 * tsr2;
+		float pitch_target = 0;
+		if (tsr <= 2) {
+			pitch_target = 17.0f;
+		}
+		else {
+			float tsr2 = tsr * tsr;
+			float tsr3 = tsr2 * tsr;
+			float tsr4 = tsr2 * tsr2;
+			float tsr5 = tsr4 * tsr;
+			float tsr6 = tsr4 * tsr2;
+			float tsr7 = tsr6 * tsr;
+			float tsr8 = tsr6 * tsr2;
+			float tsr9 = tsr8 * tsr;
+			float tsr10 = tsr8 * tsr2;
+			float tsr11 = tsr10 * tsr;
 
-		float pitch_target = -0.00361082f *  tsr6 +
-							  0.12772891f *  tsr5 -
-							  1.76974117f *  tsr4 +
-							  11.90368681f * tsr3 -
-							  38.19438424f * tsr2 +
-							  43.63402687f * tsr +
-							  4.55041087f;
-		return pitch_target;
-	}
-	else if (ALGO_C11)
-	{
-		float tsr2 = tsr * tsr;
-		float tsr3 = tsr2 * tsr;
-		float tsr4 = tsr2 * tsr2;
-		float tsr5 = tsr4 * tsr;
-		float tsr6 = tsr4 * tsr2;
-		float tsr7 = tsr6 * tsr;
-		float tsr8 = tsr6 * tsr2;
-
-		float pitch_target = -440.017f +
+			pitch_target = -440.017f +
 						   	  435.068f * tsr  +
 							  196.501f * tsr2 -
 							  487.301f * tsr3 +
@@ -151,13 +120,12 @@ float CalcPitchAuto()
 							  119.048f * tsr5 +
 							  27.5701f * tsr6 -
 							  4.19495f * tsr7 +
-							  0.419413f * tsr8;
-
-		// clamp pitch target
-#define MAX_PITCH_VAL 20.0f
-		//if (pitch_target < -MAX_PITCH_VAL) pitch_target = -MAX_PITCH_VAL;
-		//if (pitch_target > MAX_PITCH_VAL) pitch_target = MAX_PITCH_VAL;
-		return pitch_target;
+							  0.419413f * tsr8 -
+							  0.0265633f *tsr9 +
+							  0.000967116 * tsr10 -
+							  0.000015428 * tsr11;
+		}
+		return -pitch_target;
 	}
 }
 

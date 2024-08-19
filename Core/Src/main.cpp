@@ -33,6 +33,7 @@
 #include "motor_control.h"
 #include "pitch.h"
 #include "sensors.h"
+#include "can.h"
 
 /* USER CODE END Includes */
 
@@ -152,7 +153,7 @@ uint8_t b_rops = 0;
 void SystemClock_Config(void);
 static void MX_GPIO_Init(void);
 static void MX_ADC1_Init(void);
-static void MX_CAN1_Init(void);
+//static void MX_CAN1_Init(void);
 static void MX_I2C1_Init(void);
 static void MX_SPI2_Init(void);
 static void MX_UART5_Init(void);
@@ -180,8 +181,8 @@ void DoStateError();
 
 // Pitch auto algorithm
 
-float CalcTSR();
-float CalcPitchAuto();
+//float CalcTSR();
+//float CalcPitchAuto();
 
 //float CalcPitchAnglePales(uint8_t bound_angle);
 
@@ -731,6 +732,210 @@ uint32_t DoStateInit()
 
 	return STATE_ACQUISITION;
 }
+int main(void)
+{
+  /* USER CODE BEGIN 1 */
+
+  /* USER CODE END 1 */
+
+  /* MCU Configuration--------------------------------------------------------*/
+
+  /* Reset of all peripherals, Initializes the Flash interface and the Systick. */
+  HAL_Init();
+
+  /* USER CODE BEGIN Init */
+
+  /* USER CODE END Init */
+
+  /* Configure the system clock */
+  SystemClock_Config();
+
+  /* USER CODE BEGIN SysInit */
+
+  /* USER CODE END SysInit */
+
+  /* Initialize all configured peripherals */
+  MX_GPIO_Init();
+  MX_ADC1_Init();
+  MX_CAN1_Init();
+  MX_I2C1_Init();
+  MX_SPI2_Init();
+  MX_UART5_Init();
+  MX_USART2_UART_Init();
+  MX_TIM3_Init();
+  MX_I2C3_Init();
+  MX_TIM4_Init();
+  MX_TIM5_Init();
+  MX_TIM2_Init();
+  MX_TIM1_Init();
+  /* USER CODE BEGIN 2 */
+
+  // HAL_UART_Receive_IT(&huart5, (uint8_t *)aRxBuffer, sizeof(aRxBuffer));
+  /*
+  HAL_TIM_Base_Start_IT(&htim1);
+  HAL_TIM_Base_Start_IT(&htim2);
+  HAL_TIM_Base_Start_IT(&htim3);
+  HAL_TIM_Base_Start_IT(&htim4);
+  HAL_TIM_Base_Start_IT(&htim5);
+  */
+
+
+  current_state = STATE_INIT;
+
+  /*
+  DoStateInit();
+  delay_us(100);
+
+  while (1)
+  {
+	  delay_ms(2);
+	    // delay_us(100);
+
+	    // Make sure not to saturate cpu with state machine
+		// delay_us(250);
+
+	  __disable_irq();
+
+		// Check for timer flags
+		if (timer_50ms_flag)
+		{
+			timer_50ms_flag = 0;
+
+			// flag_can_tx_send = 1;
+			// flag_rpm_process = 1;
+		}
+		if (timer_100ms_flag)
+		{
+			timer_100ms_flag = 0;
+
+			flag_acq_interval = 1;
+			flag_rpm_process = 1;
+			flag_can_tx_send = 1;
+		}
+		if (timer_500ms_flag)
+		{
+			timer_500ms_flag = 0;
+
+			flag_alive_led = 1;
+			flag_uart_tx_send = 1;
+		}
+
+		// Alive led
+		if (flag_alive_led)
+		{
+			flag_alive_led = 0;
+			HAL_GPIO_TogglePin(LED1_GPIO_Port, LED1_Pin);
+		}
+
+		__enable_irq();
+		// HAL_Delay(500);
+		// HAL_GPIO_TogglePin(LED1_GPIO_Port, LED1_Pin);
+  }
+  */
+
+
+  while (1)
+  {
+	  //delay_us(100);
+	  // HAL_Delay(100);
+	  // uint32_t dir = 0x200;
+	  //TransmitCAN(MARIO_PITCH_MANUAL_CMD, (uint8_t*)&dir, 4, 0);
+
+	  ExecuteStateMachine();
+
+	  // Delay important to not saturate cpu with state machine
+	  //for (int i = 0; i < 2500; ++i) {}
+	  //HAL_Delay(5);
+  }
+
+
+/*
+  uint32_t dir_left = MOTOR_DIRECTION_LEFT;
+  uint32_t dir_right = MOTOR_DIRECTION_RIGHT;
+  uint32_t dir_stop = MOTOR_DIRECTION_STOP;
+
+  DoStateInit();
+  while (1)
+  {
+	  HAL_Delay(10);
+
+	  if (timer_500ms_flag)
+      {
+		  timer_500ms_flag = 0;
+
+		  HAL_GPIO_TogglePin(LED1_GPIO_Port, LED1_Pin);
+	  }
+
+	  uint8_t buf[4];
+
+	  if(GPIO_PIN_SET == HAL_GPIO_ReadPin(PB2_GPIO_Port, PB2_Pin)) // PD_14 -- PB2
+	  {
+		//HAL_GPIO_TogglePin(LED4_GPIO_Port, LED4_Pin);
+		//HAL_GPIO_WritePin(LED4_GPIO_Port, LED4_Pin, GPIO_PIN_SET);
+		  if (pb2_value == 1)
+		  {
+			  pb2_value = 0;
+			  HAL_GPIO_WritePin(LED4_GPIO_Port, LED4_Pin, GPIO_PIN_RESET);
+
+			  memcpy(buf, &dir_stop, 4);
+			  TransmitCAN(0x71, buf, 4, 0);
+		  }
+	  }
+	  if (GPIO_PIN_SET == HAL_GPIO_ReadPin(PB1_GPIO_Port, PB1_Pin)) // PD_15 -- PB1
+	  {
+		//HAL_GPIO_TogglePin(LED3_GPIO_Port, LED3_Pin);
+		//HAL_GPIO_WritePin(LED3_GPIO_Port, LED3_Pin, GPIO_PIN_SET);
+		  if (pb1_value == 1)
+		  {
+			  pb1_value = 0;
+			  HAL_GPIO_WritePin(LED3_GPIO_Port, LED3_Pin, GPIO_PIN_RESET);
+
+			  memcpy(buf, &dir_stop, 4);
+			  TransmitCAN(0x71, buf, 4, 0);
+		  }
+	  }
+
+	  if (pb1_update)
+	  {
+		  memcpy(buf, &dir_left, 4);
+		  TransmitCAN(0x71, buf, 4, 0);
+		  pb1_update = 0;
+	  }
+	  if (pb2_update)
+	  {
+		  memcpy(buf, &dir_right, 4);
+		  TransmitCAN(0x71, buf, 4, 0);
+		  pb2_update = 0;
+	  }
+
+  }
+  */
+
+
+  /* USER CODE END 2 */
+
+  /* Infinite loop */
+  /* USER CODE BEGIN WHILE */
+  while (1)
+  {
+
+	  ExecuteStateMachine();
+
+	  // Alive blinking led
+	  // TODO: (Marc) Timer for blinking alive led
+
+	  // TODO: (Marc) Better to do a proper timer for better resolution
+	  // HAL_Delay(5);
+
+
+	  // HAL_Delay(500);
+
+    /* USER CODE END WHILE */
+
+    /* USER CODE BEGIN 3 */
+  }
+  /* USER CODE END 3 */
+}
 
 uint32_t DoStateAcquisition()
 {
@@ -938,112 +1143,42 @@ uint32_t DoStateCheckROPS()
 
 uint32_t DoStateMotorControl()
 {
-#define NORMAL 0
-#define MANUAL_MAST 1
-#define TEST_PITCH_MANUAL 0
-#define TEST_PITCH_AUTO 0
-#define TEST_AUTO_ROPS 0
-#define ALL_MANUAL 0
-#define ALL_AUTO 0
+#define AUTO_MAT 	1
+#define AUTO_PITCH 	0
 
-	if (b_rops)
-	{
-		// VerifyRopsCmd();
-	}
-	else if (NORMAL)
-	{
-		// b_rops = 1;
-		// TODO: Code compe
-		if (!b_rops)
-		{
-			//DoPitchControl();
-			// VerifyPitchTargetCmd(PITCH_ABSOLUTE_ZERO);
-			//DoMastControl();
-		}
-		else
-		{
-			// VerifyRopsCmd();
-		}
-	}
-	else if (ALL_MANUAL)
-	{
-		if (sensor_data.feedback_pitch_mode != MOTOR_MODE_MANUAL)
-		{
-			uint32_t pitch_mode = MOTOR_MODE_MANUAL;
-			TransmitCAN(MARIO_PITCH_MODE_CMD, (uint8_t*)&pitch_mode, 4, 0);
-			delay_us(100);
-		}
-		if (sensor_data.feedback_mast_mode != MOTOR_MODE_MANUAL)
-		{
-			uint32_t mast_mode = MOTOR_MODE_MANUAL;
-			TransmitCAN(MARIO_MAST_MODE_CMD, (uint8_t*)&mast_mode, 4, 0);
-			delay_us(100);
-		}
-	}
-	else if (ALL_AUTO)
-	{
-		if (sensor_data.feedback_mast_mode != MOTOR_MODE_AUTOMATIC)
-		{
-			uint32_t mast_mode = MOTOR_MODE_AUTOMATIC;
-			TransmitCAN(MARIO_MAST_MODE_CMD, (uint8_t*)&mast_mode, 4, 0);
-			delay_us(100);
-		}
-		if (sensor_data.feedback_pitch_mode != MOTOR_MODE_AUTOMATIC)
-		{
-			uint32_t pitch_mode = MOTOR_MODE_AUTOMATIC;
-			TransmitCAN(MARIO_PITCH_MODE_CMD, (uint8_t*)&pitch_mode, 4, 0);
-			delay_us(100);
+	if (AUTO_MAT == 1) {
+		if (sensor_data.feedback_mast_mode != MOTOR_MODE_AUTOMATIC) {
+			uint8_t mast_mode = MOTOR_MODE_AUTOMATIC;
+			TransmitCAN(MARIO_MAST_MODE_CMD, &mast_mode, 4, 1);
 		}
 
-		DoPitchControl();
 		DoMastControl();
 	}
-//	else if (MANUAL_MAST)
-//	// Do not control any motor when in ROPS
-//	// TODO: (Marc) Maybe only leave mast control enabled ?
-//	// if (b_rops)
-//	//	return STATE_CAN;
-
-	else if (MANUAL_MAST)
-	{
-		if (sensor_data.feedback_pitch_mode != MOTOR_MODE_MANUAL)
-		{
-			uint32_t pitch_mode = MOTOR_MODE_MANUAL;
-			TransmitCAN(MARIO_PITCH_MODE_CMD, (uint8_t*)&pitch_mode, 4, 0);
-			delay_us(100);
+	else {
+		if (sensor_data.feedback_mast_mode != MOTOR_MODE_MANUAL) {
+			uint8_t mast_mode = MOTOR_MODE_MANUAL;
+			TransmitCAN(MARIO_MAST_MODE_CMD, &mast_mode, 4, 1);
 		}
-		if (sensor_data.feedback_mast_mode != MOTOR_MODE_MANUAL)
-		{
-			uint32_t mast_mode = MOTOR_MODE_MANUAL;
-			TransmitCAN(MARIO_MAST_MODE_CMD, (uint8_t*)&mast_mode, 4, 0);
-			delay_us(100);
-		}
-
 		uint32_t dir_left = MOTOR_DIRECTION_LEFT;
 		uint32_t dir_right = MOTOR_DIRECTION_RIGHT;
 		uint32_t dir_stop = MOTOR_DIRECTION_STOP;
 
-		// static uint32_t manual_motor_id = MARIO_PITCH_MANUAL_CMD;
 		static uint32_t manual_motor_id = MARIO_MAST_MANUAL_CMD;
 
-		if(GPIO_PIN_SET == HAL_GPIO_ReadPin(PB2_GPIO_Port, PB2_Pin)) // PD_14 -- PB2
-		{
+		if(GPIO_PIN_SET == HAL_GPIO_ReadPin(PB2_GPIO_Port, PB2_Pin)) { // PD_14 -- PB2
 			//HAL_GPIO_TogglePin(LED4_GPIO_Port, LED4_Pin);
 			//HAL_GPIO_WritePin(LED4_GPIO_Port, LED4_Pin, GPIO_PIN_SET);
-			if (pb2_value == 1)
-			{
+			if (pb2_value == 1) {
 				pb2_value = 0;
 				// HAL_GPIO_WritePin(LED4_GPIO_Port, LED4_Pin, GPIO_PIN_RESET);
 
 				TransmitCAN(manual_motor_id, (uint8_t*)&dir_stop, 4, 1);
 			}
 		}
-		if (GPIO_PIN_SET == HAL_GPIO_ReadPin(PB1_GPIO_Port, PB1_Pin)) // PD_15 -- PB1
-		{
+		if (GPIO_PIN_SET == HAL_GPIO_ReadPin(PB1_GPIO_Port, PB1_Pin)) {// PD_15 -- PB1
 			//HAL_GPIO_TogglePin(LED3_GPIO_Port, LED3_Pin);
 			//HAL_GPIO_WritePin(LED3_GPIO_Port, LED3_Pin, GPIO_PIN_SET);
-			if (pb1_value == 1)
-			{
+			if (pb1_value == 1) {
 				pb1_value = 0;
 				// HAL_GPIO_WritePin(LED3_GPIO_Port, LED3_Pin, GPIO_PIN_RESET);
 
@@ -1051,250 +1186,35 @@ uint32_t DoStateMotorControl()
 			}
 		}
 
-		if (pb1_update)
-		{
+		if (pb1_update) {
 			pb1_update = 0;
 			TransmitCAN(manual_motor_id, (uint8_t*)&dir_left, 4, 0);
 		}
-		if (pb2_update)
-		{
+		if (pb2_update) {
 			pb2_update = 0;
 			TransmitCAN(manual_motor_id, (uint8_t*)&dir_right, 4, 0);
 		}
 	}
-	else if (TEST_PITCH_MANUAL)
+
+
+
+	if (AUTO_PITCH == 1)
 	{
-		if (!b_rops)
+		if (sensor_data.feedback_pitch_mode != MOTOR_MODE_AUTOMATIC) {
+			uint8_t pitch_mode = MOTOR_MODE_AUTOMATIC;
+			TransmitCAN(MARIO_PITCH_MODE_CMD, &pitch_mode, 4, 1);
+		}
+
+		DoPitchControl();
+	}
+	else {
+		if (sensor_data.feedback_mast_mode != MOTOR_MODE_MANUAL)
 		{
-			if (sensor_data.feedback_pitch_mode != MOTOR_MODE_MANUAL)
-			{
-				uint32_t pitch_mode = MOTOR_MODE_MANUAL;
-				TransmitCAN(MARIO_PITCH_MODE_CMD, (uint8_t*)&pitch_mode, 4, 0);
-				delay_us(100);
-			}
+			uint8_t mast_mode = MOTOR_MODE_MANUAL;
+			TransmitCAN(MARIO_MAST_MODE_CMD, &mast_mode, 4, 1);
 		}
 	}
-	else if (TEST_PITCH_AUTO)
-	{
-		if (!b_rops)
-		{
-			// Pitch auto control
-			static uint8_t target_changed = 0;
-			if (pb1_update || pb2_update)
-			{
-				target_changed = 1;
 
-				if (sensor_data.feedback_pitch_mode != MOTOR_MODE_AUTOMATIC)
-				{
-					uint32_t pitch_mode = MOTOR_MODE_AUTOMATIC;
-					TransmitCAN(MARIO_PITCH_MODE_CMD, (uint8_t*)&pitch_mode, 4, 0);
-					delay_us(100);
-				}
-			}
-
-			static float target_pitch = 0.0f;
-
-			float target_pitch0 = 0.0f;
-			float target_pitch1 = 10.0f;
-
-			if (pb1_update)
-			{
-				pb1_update = 0;
-				target_pitch = target_pitch0;
-				// SendPitchAngleCmd(target_pitch0);
-			}
-			if (pb2_update)
-			{
-				pb2_update = 0;
-				target_pitch = target_pitch1;
-				// SendPitchAngleCmd(target_pitch1);
-			}
-
-			if (target_changed)
-			{
-				// Compute delta angle from -180 to 180 degrees
-				float delta_angle_pales = CalcPitchAnglePales(1) - target_pitch;
-				delta_angle_pales = BoundAngleSemiCircle(delta_angle_pales);
-
-	#define MIN_ERROR_ANGLE 0.1f
-				if (abs(delta_angle_pales) > 0.1f)
-				{
-					if (pitch_done)
-					{
-						// Small delay inbetween commands for smoothness
-						static uint32_t pitch_done_counter = 0;
-
-						++pitch_done_counter;
-
-						static const int PITCH_DONE_WAIT_NUM = 20;
-						if (pitch_done_counter >= PITCH_DONE_WAIT_NUM)
-						{
-							pitch_done_counter = 0;
-							SendPitchAngleCmd(target_pitch);
-						}
-					}
-				}
-			}
-		}
-	}
-	else if (TEST_AUTO_ROPS)
-	{
-		// if (!b_rops)
-		{
-			// Pitch auto control
-			static uint8_t target_changed = 0;
-			if (pb1_update || pb2_update)
-			{
-				target_changed = 1;
-
-				if (sensor_data.feedback_pitch_mode != MOTOR_MODE_AUTOMATIC)
-				{
-					uint32_t pitch_mode = MOTOR_MODE_AUTOMATIC;
-					TransmitCAN(MARIO_PITCH_MODE_CMD, (uint8_t*)&pitch_mode, 4, 0);
-					delay_us(100);
-				}
-			}
-
-			static float target_pitch = 0.0f;
-			static uint8_t target_drapeau = 0;
-
-			// float target_pitch0 = 0.0f;
-			// float target_pitch1 = 10.0f;
-
-			if (pb1_update)
-			{
-				pb1_update = 0;
-				// target_pitch = target_pitch0;
-				target_drapeau = 1;
-				// b_drapeau = 1;
-				// SendPitchAngleCmd(target_pitch0);
-			}
-			if (pb2_update)
-			{
-				pb2_update = 0;
-				// target_pitch = target_pitch1;
-				target_drapeau = 0;
-				// b_drapeau = 0;
-				// SendPitchAngleCmd(target_pitch1);
-			}
-
-			if (target_changed)
-			{
-				if (target_drapeau)
-				{
-#define MAX_ERROR_ROPS 100
-					if (std::fabs((float)sensor_data.pitch_encoder - (float)PITCH_ABSOLUTE_ROPS) > (float)MAX_ERROR_ROPS)
-					{
-						SendPitchROPSCmd();
-					}
-
-				}
-				else
-				{
-					float delta_angle_pales = CalcPitchAnglePales(TRUE) - 0.0f;
-					delta_angle_pales = BoundAngleSemiCircle(delta_angle_pales);
-
-#define MIN_ERROR_ANGLE 0.1f
-					if (abs(delta_angle_pales) > 0.1f)
-					{
-						if (pitch_done)
-						{
-							// Small delay inbetween commands for smoothness
-							static uint32_t pitch_done_counter = 0;
-							++pitch_done_counter;
-
-							static const int PITCH_DONE_WAIT_NUM = 6;
-							if (pitch_done_counter >= PITCH_DONE_WAIT_NUM)
-							{
-								pitch_done_counter = 0;
-								SendPitchAngleCmd(target_pitch);
-							}
-						}
-
-					}
-				}
-				/*
-				// Compute delta angle from -180 to 180 degrees
-				float delta_angle_pales = CalcPitchAnglePales(TRUE) - target_pitch;
-				delta_angle_pales = BoundAngleSemiCircle(delta_angle_pales);
-
-	#define MIN_ERROR_ANGLE 0.1f
-				if (abs(delta_angle_pales) > 0.1f)
-				{
-					if (pitch_done)
-					{
-						// Small delay inbetween commands for smoothness
-						static uint32_t pitch_done_counter = 0;
-
-						++pitch_done_counter;
-
-	#define PITCH_DONE_WAIT_NUM 20
-						if (pitch_done_counter >= PITCH_DONE_WAIT_NUM)
-						{
-							pitch_done_counter = 0;
-							SendPitchAngleCmd(target_pitch);
-						}
-					}
-				}
-				*/
-			}
-		}
-	}
-	else
-	{
-		/*
-		if (pb1_update)
-		{
-			pb1_update = 0;
-			// TransmitCAN(manual_motor_id, (uint8_t*)&dir_left, 4, 0);
-			b_rops = 1;
-		}
-
-		if (pb2_update)
-		{
-			pb2_update = 0;
-			// TransmitCAN(manual_motor_id, (uint8_t*)&dir_right, 4, 0);
-			b_rops = 0;
-		}
-
-		// Do not control any motor when in ROPS
-		// TODO: (Marc) Maybe only leave mast control enabled ?
-		if (b_rops)
-			return STATE_CAN;
-
-		if (sensor_data.feedback_pitch_mode != MOTOR_MODE_AUTOMATIC)
-		{
-			float pitch_mode_cmd = MOTOR_MODE_AUTOMATIC;
-			TransmitCAN(MARIO_PITCH_MODE_CMD, (uint8_t*)&pitch_mode_cmd, 4, 0);
-			delay_us(100);
-		}
-
-		static float target_pitch = 0.0f;
-
-		// Compute delta angle from -180 to 180 degrees
-		float delta_angle_pales = CalcPitchAnglePales(TRUE) - target_pitch;
-		delta_angle_pales = BoundAngleSemiCircle(delta_angle_pales);
-
-#define MIN_ERROR_ANGLE 0.1f
-		if (abs(delta_angle_pales) > 0.1f)
-		{
-			if (pitch_done)
-			{
-				// Small delay inbetween commands for smoothness
-				static uint32_t pitch_done_counter = 0;
-
-				++pitch_done_counter;
-
-#define PITCH_DONE_WAIT_NUM 20
-				if (pitch_done_counter >= PITCH_DONE_WAIT_NUM)
-				{
-					pitch_done_counter = 0;
-					SendPitchAngleCmd(target_pitch);
-				}
-			}
-		}
-		*/
-	}
 
 	return STATE_CAN;
 }
@@ -1340,7 +1260,7 @@ uint32_t DoStateROPS()
 		}
 
 		// Check angle is at rops
-// #define MAX_ERROR_ROPS 80
+ #define MAX_ERROR_ROPS 80
 		// TODO: (Marc) Will not work if value loops around the zero, need proper bounds checking
 
 		if (std::fabs(sensor_data.pitch_encoder - PITCH_ABSOLUTE_ROPS) > MAX_ERROR_ROPS)
@@ -2358,210 +2278,7 @@ void HAL_CAN_RxFifo0MsgPendingCallback(CAN_HandleTypeDef* hcan)
   * @brief  The application entry point.
   * @retval int
   */
-int main(void)
-{
-  /* USER CODE BEGIN 1 */
 
-  /* USER CODE END 1 */
-
-  /* MCU Configuration--------------------------------------------------------*/
-
-  /* Reset of all peripherals, Initializes the Flash interface and the Systick. */
-  HAL_Init();
-
-  /* USER CODE BEGIN Init */
-
-  /* USER CODE END Init */
-
-  /* Configure the system clock */
-  SystemClock_Config();
-
-  /* USER CODE BEGIN SysInit */
-
-  /* USER CODE END SysInit */
-
-  /* Initialize all configured peripherals */
-  MX_GPIO_Init();
-  MX_ADC1_Init();
-  MX_CAN1_Init();
-  MX_I2C1_Init();
-  MX_SPI2_Init();
-  MX_UART5_Init();
-  MX_USART2_UART_Init();
-  MX_TIM3_Init();
-  MX_I2C3_Init();
-  MX_TIM4_Init();
-  MX_TIM5_Init();
-  MX_TIM2_Init();
-  MX_TIM1_Init();
-  /* USER CODE BEGIN 2 */
-
-  // HAL_UART_Receive_IT(&huart5, (uint8_t *)aRxBuffer, sizeof(aRxBuffer));
-  /*
-  HAL_TIM_Base_Start_IT(&htim1);
-  HAL_TIM_Base_Start_IT(&htim2);
-  HAL_TIM_Base_Start_IT(&htim3);
-  HAL_TIM_Base_Start_IT(&htim4);
-  HAL_TIM_Base_Start_IT(&htim5);
-  */
-
-
-  current_state = STATE_INIT;
-
-  /*
-  DoStateInit();
-  delay_us(100);
-
-  while (1)
-  {
-	  delay_ms(2);
-	    // delay_us(100);
-
-	    // Make sure not to saturate cpu with state machine
-		// delay_us(250);
-
-	  __disable_irq();
-
-		// Check for timer flags
-		if (timer_50ms_flag)
-		{
-			timer_50ms_flag = 0;
-
-			// flag_can_tx_send = 1;
-			// flag_rpm_process = 1;
-		}
-		if (timer_100ms_flag)
-		{
-			timer_100ms_flag = 0;
-
-			flag_acq_interval = 1;
-			flag_rpm_process = 1;
-			flag_can_tx_send = 1;
-		}
-		if (timer_500ms_flag)
-		{
-			timer_500ms_flag = 0;
-
-			flag_alive_led = 1;
-			flag_uart_tx_send = 1;
-		}
-
-		// Alive led
-		if (flag_alive_led)
-		{
-			flag_alive_led = 0;
-			HAL_GPIO_TogglePin(LED1_GPIO_Port, LED1_Pin);
-		}
-
-		__enable_irq();
-		// HAL_Delay(500);
-		// HAL_GPIO_TogglePin(LED1_GPIO_Port, LED1_Pin);
-  }
-  */
-
-
-  while (1)
-  {
-	  //delay_us(100);
-	  // HAL_Delay(100);
-	  // uint32_t dir = 0x200;
-	  //TransmitCAN(MARIO_PITCH_MANUAL_CMD, (uint8_t*)&dir, 4, 0);
-
-	  ExecuteStateMachine();
-
-	  // Delay important to not saturate cpu with state machine
-	  //for (int i = 0; i < 2500; ++i) {}
-	  //HAL_Delay(5);
-  }
-
-
-/*
-  uint32_t dir_left = MOTOR_DIRECTION_LEFT;
-  uint32_t dir_right = MOTOR_DIRECTION_RIGHT;
-  uint32_t dir_stop = MOTOR_DIRECTION_STOP;
-
-  DoStateInit();
-  while (1)
-  {
-	  HAL_Delay(10);
-
-	  if (timer_500ms_flag)
-      {
-		  timer_500ms_flag = 0;
-
-		  HAL_GPIO_TogglePin(LED1_GPIO_Port, LED1_Pin);
-	  }
-
-	  uint8_t buf[4];
-
-	  if(GPIO_PIN_SET == HAL_GPIO_ReadPin(PB2_GPIO_Port, PB2_Pin)) // PD_14 -- PB2
-	  {
-		//HAL_GPIO_TogglePin(LED4_GPIO_Port, LED4_Pin);
-		//HAL_GPIO_WritePin(LED4_GPIO_Port, LED4_Pin, GPIO_PIN_SET);
-		  if (pb2_value == 1)
-		  {
-			  pb2_value = 0;
-			  HAL_GPIO_WritePin(LED4_GPIO_Port, LED4_Pin, GPIO_PIN_RESET);
-
-			  memcpy(buf, &dir_stop, 4);
-			  TransmitCAN(0x71, buf, 4, 0);
-		  }
-	  }
-	  if (GPIO_PIN_SET == HAL_GPIO_ReadPin(PB1_GPIO_Port, PB1_Pin)) // PD_15 -- PB1
-	  {
-		//HAL_GPIO_TogglePin(LED3_GPIO_Port, LED3_Pin);
-		//HAL_GPIO_WritePin(LED3_GPIO_Port, LED3_Pin, GPIO_PIN_SET);
-		  if (pb1_value == 1)
-		  {
-			  pb1_value = 0;
-			  HAL_GPIO_WritePin(LED3_GPIO_Port, LED3_Pin, GPIO_PIN_RESET);
-
-			  memcpy(buf, &dir_stop, 4);
-			  TransmitCAN(0x71, buf, 4, 0);
-		  }
-	  }
-
-	  if (pb1_update)
-	  {
-		  memcpy(buf, &dir_left, 4);
-		  TransmitCAN(0x71, buf, 4, 0);
-		  pb1_update = 0;
-	  }
-	  if (pb2_update)
-	  {
-		  memcpy(buf, &dir_right, 4);
-		  TransmitCAN(0x71, buf, 4, 0);
-		  pb2_update = 0;
-	  }
-
-  }
-  */
-
-
-  /* USER CODE END 2 */
-
-  /* Infinite loop */
-  /* USER CODE BEGIN WHILE */
-  while (1)
-  {
-
-	  ExecuteStateMachine();
-
-	  // Alive blinking led
-	  // TODO: (Marc) Timer for blinking alive led
-
-	  // TODO: (Marc) Better to do a proper timer for better resolution
-	  // HAL_Delay(5);
-
-
-	  // HAL_Delay(500);
-
-    /* USER CODE END WHILE */
-
-    /* USER CODE BEGIN 3 */
-  }
-  /* USER CODE END 3 */
-}
 
 /**
   * @brief System Clock Configuration
@@ -2672,140 +2389,6 @@ static void MX_ADC1_Init(void)
   */
 
   /* USER CODE END ADC1_Init 2 */
-
-}
-
-/**
-  * @brief CAN1 Initialization Function
-  * @param None
-  * @retval None
-  */
-static void MX_CAN1_Init(void)
-{
-
-  /* USER CODE BEGIN CAN1_Init 0 */
-
-  /* USER CODE END CAN1_Init 0 */
-
-  /* USER CODE BEGIN CAN1_Init 1 */
-
-  /* USER CODE END CAN1_Init 1 */
-  hcan1.Instance = CAN1;
-  hcan1.Init.Prescaler = 12;
-  hcan1.Init.Mode = CAN_MODE_NORMAL;
-  hcan1.Init.SyncJumpWidth = CAN_SJW_3TQ;
-  hcan1.Init.TimeSeg1 = CAN_BS1_11TQ;
-  hcan1.Init.TimeSeg2 = CAN_BS2_4TQ;
-  hcan1.Init.TimeTriggeredMode = DISABLE;
-  hcan1.Init.AutoBusOff = ENABLE;
-  hcan1.Init.AutoWakeUp = DISABLE;
-  hcan1.Init.AutoRetransmission = DISABLE;
-  hcan1.Init.ReceiveFifoLocked = DISABLE;
-  hcan1.Init.TransmitFifoPriority = ENABLE;
-  if (HAL_CAN_Init(&hcan1) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  /* USER CODE BEGIN CAN1_Init 2 */
-
-  /*
-  CAN_FilterTypeDef filter_fifo0;
-      	// All common bits go into the ID register
-      filter_fifo0.FilterIdHigh = MARIO_FIFO0_RX_FILTER_ID_HIGH;
-      filter_fifo0.FilterIdLow = MARIO_FIFO0_RX_FILTER_ID_LOW;
-
-      	// Which bits to compare for filter
-      filter_fifo0.FilterMaskIdHigh = MARIO_FIFO0_RX_FILTER_MASK_HIGH;
-      filter_fifo0.FilterMaskIdLow = MARIO_FIFO0_RX_FILTER_MASK_LOW;
-
-      filter_fifo0.FilterFIFOAssignment = CAN_FILTER_FIFO0;
-      filter_fifo0.FilterBank = 18; // Which filter to use from the assigned ones
-      filter_fifo0.FilterMode = CAN_FILTERMODE_IDMASK;
-      filter_fifo0.FilterScale = CAN_FILTERSCALE_32BIT;
-      filter_fifo0.FilterActivation = CAN_FILTER_ENABLE;
-      filter_fifo0.SlaveStartFilterBank = 20; // How many filters to assign to CAN1
-  	if (HAL_CAN_ConfigFilter(&hcan1, &filter_fifo0) != HAL_OK)
-  	{
-  	  Error_Handler();
-  	}
-  	*/
-/*
-    CAN_FilterTypeDef filter_all;
-    	// All common bits go into the ID register
-    filter_all.FilterIdHigh = 0x0000;
-    filter_all.FilterIdLow = 0x0000;
-
-    	// Which bits to compare for filter
-    filter_all.FilterMaskIdHigh = 0x0000;
-    filter_all.FilterMaskIdLow = 0x0000;
-
-    filter_all.FilterFIFOAssignment = CAN_FILTER_FIFO0;
-    filter_all.FilterBank = 18; // Which filter to use from the assigned ones
-    filter_all.FilterMode = CAN_FILTERMODE_IDMASK;
-    filter_all.FilterScale = CAN_FILTERSCALE_32BIT;
-    filter_all.FilterActivation = CAN_FILTER_ENABLE;
-    filter_all.SlaveStartFilterBank = 20; // How many filters to assign to CAN1
-	if (HAL_CAN_ConfigFilter(&hcan1, &filter_all) != HAL_OK)
-	{
-	  Error_Handler();
-	}
-*/
-
-
-  	CAN_FilterTypeDef sf_fifo0;
-  	// All common bits go into the ID register
-  	sf_fifo0.FilterIdHigh = MARIO_FIFO0_RX_FILTER_ID_HIGH;
-  	sf_fifo0.FilterIdLow = MARIO_FIFO0_RX_FILTER_ID_LOW;
-
-  	// Which bits to compare for filter
-  	sf_fifo0.FilterMaskIdHigh = 0x0000;
-  	sf_fifo0.FilterMaskIdLow = (MARIO_FIFO0_RX_FILTER_MASK_LOW & 0x07FF);
-
-  	sf_fifo0.FilterFIFOAssignment = CAN_FILTER_FIFO0;
-  	sf_fifo0.FilterBank = 2; // Which filter to use from the assigned ones
-  	sf_fifo0.FilterMode = CAN_FILTERMODE_IDMASK;
-  	sf_fifo0.FilterScale = CAN_FILTERSCALE_32BIT;
-  	sf_fifo0.FilterActivation = CAN_FILTER_ENABLE;
-  	sf_fifo0.SlaveStartFilterBank = 20; // How many filters to assign to CAN1
-  	if (HAL_CAN_ConfigFilter(&hcan1, &sf_fifo0) != HAL_OK)
-  	{
-  	  Error_Handler();
-  	}
-
-
-  	CAN_FilterTypeDef sf_fifo1;
-  	// All common bits go into the ID register
-  	sf_fifo1.FilterIdHigh = MARIO_FIFO1_RX_FILTER_ID_HIGH;
-  	sf_fifo1.FilterIdLow = MARIO_FIFO1_RX_FILTER_ID_LOW;
-
-  	// Which bits to compare for filter
-  	sf_fifo1.FilterMaskIdHigh = 0x0000;
-  	sf_fifo1.FilterMaskIdLow = (MARIO_FIFO1_RX_FILTER_MASK_LOW & 0x07FF);
-
-  	sf_fifo1.FilterFIFOAssignment = CAN_FILTER_FIFO1;
-  	sf_fifo1.FilterBank = 3; // Which filter to use from the assigned ones
-  	sf_fifo1.FilterMode = CAN_FILTERMODE_IDMASK;
-  	sf_fifo1.FilterScale = CAN_FILTERSCALE_32BIT;
-  	sf_fifo1.FilterActivation = CAN_FILTER_ENABLE;
-  	sf_fifo1.SlaveStartFilterBank = 20; // How many filters to assign to CAN1
-  	if (HAL_CAN_ConfigFilter(&hcan1, &sf_fifo1) != HAL_OK)
-  	{
-  	  Error_Handler();
-  	}
-
-
-  if (HAL_CAN_Start(&hcan1) != HAL_OK)
-  	{
-  		Error_Handler();
-  	}
-  	// if (HAL_CAN_ActivateNotification(&hcan1, CAN_IT_RX_FIFO0_MSG_PENDING | CAN_IT_RX_FIFO1_MSG_PENDING | CAN_IT_BUSOFF | CAN_IT_ERROR | CAN_IT_ERROR_WARNING | CAN_IT_ERROR_PASSIVE) != HAL_OK)
-    if (HAL_CAN_ActivateNotification(&hcan1, CAN_IT_RX_FIFO0_MSG_PENDING | CAN_IT_RX_FIFO1_MSG_PENDING) != HAL_OK)
-  	// if (HAL_CAN_ActivateNotification(&hcan1, CAN_IT_RX_FIFO0_MSG_PENDING) != HAL_OK)
-  	{
-  		Error_Handler();
-  	}
-
-  /* USER CODE END CAN1_Init 2 */
 
 }
 
