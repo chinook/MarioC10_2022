@@ -44,24 +44,30 @@ void DoPitchControl()
 	}
 }
 
-void DoMastControl(){
+void DoMastControl()
+{
 #define WIND_SPEED_MAST_THRESHOLD 1.0f
 #define WIND_DIR_MAST_HYSTERESIS 10.0f // -10degs, +10degs
+
 	if (sensor_data.wind_speed_avg >= WIND_SPEED_MAST_THRESHOLD)
 	{
-		uint32_t dir_left = MOTOR_DIRECTION_LEFT;
-		uint32_t dir_right = MOTOR_DIRECTION_RIGHT;
-		uint32_t dir_stop = MOTOR_DIRECTION_STOP;
+		uint32_t dir_left = 0x200;
+		uint32_t dir_right = 0x300;
+		uint32_t dir_stop = 0x100;
 
 		if (abs(sensor_data.wind_direction_avg) >= WIND_DIR_MAST_HYSTERESIS)
 		{
 			if (sensor_data.wind_direction_avg > 0.0f)
+			{
 				TransmitCAN(MARIO_MAST_MANUAL_CMD, (uint8_t*)&dir_left, 4, 1);
-			else {
+			}
+			else
+			{
 				TransmitCAN(MARIO_MAST_MANUAL_CMD, (uint8_t*)&dir_right, 4, 1);
 			}
 		}
-		else {
+		else
+		{
 			TransmitCAN(MARIO_MAST_MANUAL_CMD, (uint8_t*)&dir_stop, 4, 1);
 		}
 	}

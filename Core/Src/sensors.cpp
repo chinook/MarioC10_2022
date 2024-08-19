@@ -95,6 +95,8 @@ void ReadWeatherStation()
 			float wind_speed_ms = KNOTS_TO_MS * wind_speed;
 			sensor_data.wind_speed = wind_speed_ms;
 
+			sensor_data.wind_speed_avg = KNOTS_TO_MS * sensor_data.wind_speed_avg;
+
 			HAL_GPIO_TogglePin(LED3_GPIO_Port, LED3_Pin);
 		}
 	}
