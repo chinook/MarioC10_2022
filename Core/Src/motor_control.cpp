@@ -9,6 +9,8 @@
 #include "sensors.h"
 #include "pitch.h"
 
+float wind_direction_n180_0_p180(float wind_direction_0_360);
+
 #define PITCH_UPDATE_DEG_THRESHOLD 0.25f
 
 void DoPitchControl()
@@ -49,16 +51,16 @@ void DoMastControl()
 #define WIND_SPEED_MAST_THRESHOLD 1.0f
 #define WIND_DIR_MAST_HYSTERESIS 10.0f // -10degs, +10degs
 
+	uint32_t dir_left = 0x200;
+	uint32_t dir_right = 0x300;
+	uint32_t dir_stop = 0x100;
+
 	if (sensor_data.wind_speed_avg >= WIND_SPEED_MAST_THRESHOLD)
 	{
-		uint32_t dir_left = 0x200;
-		uint32_t dir_right = 0x300;
-		uint32_t dir_stop = 0x100;
-
 		if (abs(sensor_data.wind_direction_avg) >= WIND_DIR_MAST_HYSTERESIS)
 		{
-			if (sensor_data.wind_direction_avg > 0.0f)
-			{
+			float wind_direction_corrected = wind_direction_n180_0_p180(sensor_data.wind_direction_avg);
+			if (wind_direction_corrected > 0.0f) {
 				TransmitCAN(MARIO_MAST_MANUAL_CMD, (uint8_t*)&dir_left, 4, 1);
 			}
 			else
@@ -66,9 +68,18 @@ void DoMastControl()
 				TransmitCAN(MARIO_MAST_MANUAL_CMD, (uint8_t*)&dir_right, 4, 1);
 			}
 		}
-		else
-		{
-			TransmitCAN(MARIO_MAST_MANUAL_CMD, (uint8_t*)&dir_stop, 4, 1);
-		}
 	}
+	else {
+		TransmitCAN(MARIO_MAST_MANUAL_CMD, (uint8_t*)&dir_stop, 4, 1);
+	}
+}
+
+
+float wind_direction_n180_0_p180(float wind_direction_0_360) {
+	float wind_direction_corrected = wind_direction_0_360;
+
+	if (wind_direction_0_360 > 180 && wind_direction_0_360 < 360) {
+		wind_direction_corrected = wind_direction_0_360 - 360;
+	}
+	return wind_direction_corrected;
 }
