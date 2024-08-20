@@ -36,6 +36,17 @@ float wind_speeds[4];
 int wind_dir_last_idx = 0;
 int wind_speed_last_idx = 0;
 
+float wind_direction_n180_0_p180(float wind_direction_0_360)
+{
+	float wind_direction_corrected = wind_direction_0_360;
+
+	if (wind_direction_0_360 > 180 && wind_direction_0_360 < 360)
+	{
+		wind_direction_corrected = wind_direction_0_360 - 360;
+	}
+	return wind_direction_corrected;
+}
+
 
 void ReadWeatherStation()
 {
@@ -82,20 +93,23 @@ void ReadWeatherStation()
 			float wind_dir = atof(wind_dir_msg);
 			float wind_speed = atof(wind_speed_msg);
 
+			// Wind speed to m/s
+#define KNOTS_TO_MS 0.514444f
+			wind_speed = KNOTS_TO_MS * wind_speed;
+
+			// Wind direction correction from 0->360 to -180->180
+			wind_dir = wind_direction_n180_0_p180(wind_dir);
+
 			wind_dirs[wind_dir_last_idx++] = wind_dir;
 			wind_speeds[wind_speed_last_idx++] = wind_speed;
 			if (wind_dir_last_idx >= 4) wind_dir_last_idx = 0;
 			if (wind_speed_last_idx >= 4) wind_speed_last_idx = 0;
-			// Do the average
+			// Do the averages
 			sensor_data.wind_direction_avg = (wind_dirs[0] + wind_dirs[1] + wind_dirs[2] + wind_dirs[3]) / 4.0f;
 			sensor_data.wind_speed_avg = (wind_speeds[0] + wind_speeds[1] + wind_speeds[2] + wind_speeds[3]) / 4.0f;
 
 			sensor_data.wind_direction = wind_dir;// - 120.0f;
-#define KNOTS_TO_MS 0.514444f
-			float wind_speed_ms = KNOTS_TO_MS * wind_speed;
-			sensor_data.wind_speed = wind_speed_ms;
-
-			sensor_data.wind_speed_avg = KNOTS_TO_MS * sensor_data.wind_speed_avg;
+			sensor_data.wind_speed = wind_speed;
 
 			HAL_GPIO_TogglePin(LED3_GPIO_Port, LED3_Pin);
 		}

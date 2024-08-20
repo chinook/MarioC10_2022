@@ -59,8 +59,7 @@ void DoMastControl()
 	{
 		if (abs(sensor_data.wind_direction_avg) >= WIND_DIR_MAST_HYSTERESIS)
 		{
-			float wind_direction_corrected = wind_direction_n180_0_p180(sensor_data.wind_direction_avg);
-			if (wind_direction_corrected > 0.0f) {
+			if (sensor_data.wind_direction_avg > 0.0f) {
 				TransmitCAN(MARIO_MAST_MANUAL_CMD, (uint8_t*)&dir_left, 4, 1);
 			}
 			else
@@ -72,14 +71,4 @@ void DoMastControl()
 	else {
 		TransmitCAN(MARIO_MAST_MANUAL_CMD, (uint8_t*)&dir_stop, 4, 1);
 	}
-}
-
-
-float wind_direction_n180_0_p180(float wind_direction_0_360) {
-	float wind_direction_corrected = wind_direction_0_360;
-
-	if (wind_direction_0_360 > 180 && wind_direction_0_360 < 360) {
-		wind_direction_corrected = wind_direction_0_360 - 360;
-	}
-	return wind_direction_corrected;
 }
