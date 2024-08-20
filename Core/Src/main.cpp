@@ -118,8 +118,6 @@ uint8_t timer_100ms_flag;
 uint8_t timer_250ms_flag;
 uint8_t timer_500ms_flag;
 
-// 1000ms flags
-uint8_t flag_mast_cmd_send = 0;
 // 500ms flags
 uint8_t flag_alive_led = 0;
 uint8_t flag_uart_tx_send = 0;
@@ -619,7 +617,6 @@ void ExecuteStateMachine()
 			flag_can_tx_send = 1;
 		}
 	}
-	static int flag_mast_cmd_send_i = 0;
 	if (timer_500ms_flag)
 	{
 		timer_500ms_flag = 0;
@@ -628,14 +625,6 @@ void ExecuteStateMachine()
 		flag_wheel_rpm_process = 1;
 		flag_alive_led = 1;
 		flag_uart_tx_send = 1;
-
-		// 1000ms flag update
-		flag_mast_cmd_send_i += 1;
-		if (flag_mast_cmd_send_i == 2)
-		{
-			flag_mast_cmd_send_i = 0;
-			flag_mast_cmd_send = 1;
-		}
 	}
 
 	// Alive led
@@ -1157,45 +1146,13 @@ uint32_t DoStateMotorControl()
 #define AUTO_MAT 	1
 #define AUTO_PITCH 	0
 
-	if (AUTO_MAT == 1)
-	{
-		if (sensor_data.feedback_mast_mode != MOTOR_MODE_AUTOMATIC)
-		{
+	if (AUTO_MAT == 1) {
+		if (sensor_data.feedback_mast_mode != MOTOR_MODE_AUTOMATIC) {
 			uint8_t mast_mode = MOTOR_MODE_AUTOMATIC;
 			TransmitCAN(MARIO_MAST_MODE_CMD, &mast_mode, 4, 1);
 		}
 
-#define MAST_CMD_DURATION 2
-		static int mast_cmd_delay_count = 0;
-		if (flag_mast_cmd_send)
-		{
-			flag_mast_cmd_send = 0;
-			// mast_cmd_delay_count = 0;
-			mast_cmd_delay_count = MAST_CMD_DURATION;
-
-			DoMastControl();
-		}
-		else
-		{
-			if (mast_cmd_delay_count == 0)
-			{
-				uint32_t dir_stop = 0x300;
-				TransmitCAN(MARIO_MAST_MANUAL_CMD, (uint8_t*)&dir_stop, 4, 1);
-			}
-			else
-			{
-				mast_cmd_delay_count--;
-			}
-		}
-		/*else if (mast_cmd_delay_count == MAST_CMD_DURATION)
-		{
-			uint32_t dir_stop = 0x300;
-			TransmitCAN(MARIO_MAST_MANUAL_CMD, (uint8_t*)&dir_stop, 4, 1);
-		}
-		else
-		{
-			mast_cmd_delay_count++;
-		}*/
+		DoMastControl();
 	}
 	else {
 		if (sensor_data.feedback_mast_mode != MOTOR_MODE_MANUAL) {
