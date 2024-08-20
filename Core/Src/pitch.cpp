@@ -74,14 +74,14 @@ float CalcTSR()
 	float rotor_speed_omega = RPM_TO_RADS * sensor_data.rotor_rpm;
 	//float rotor_speed_omega = RPM_TO_RADS * 800;
 
-	// float wind_speed_ms = KNOTS_TO_MS * sensor_data.wind_speed;
+	//float wind_speed_ms = KNOTS_TO_MS * sensor_data.wind_speed;
 	float wind_speed_ms = sensor_data.wind_speed_avg;
 	//float wind_speed_ms = 12;
 
 	if (abs(wind_speed_ms) < MIN_EPSILON)
 		return 0.0f;
 
-#define PALE_RADIUS 0.89f
+#define PALE_RADIUS 0.874f
 	float tsr = (PALE_RADIUS * rotor_speed_omega) / wind_speed_ms;
 
 	if (tsr < MIN_EPSILON)

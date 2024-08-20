@@ -942,8 +942,8 @@ uint32_t DoStateCheckROPS()
 
 uint32_t DoStateMotorControl()
 {
-#define AUTO_MAT 	1
-#define AUTO_PITCH 	1
+#define AUTO_MAT 	0
+#define AUTO_PITCH 	0
 
 	if (AUTO_MAT == 1) {
 		if (sensor_data.feedback_mast_mode != MOTOR_MODE_AUTOMATIC) {
@@ -958,6 +958,8 @@ uint32_t DoStateMotorControl()
 			uint8_t mast_mode = MOTOR_MODE_MANUAL;
 			TransmitCAN(MARIO_MAST_MODE_CMD, &mast_mode, 4, 1);
 		}
+
+		/*
 		uint32_t dir_left = MOTOR_DIRECTION_LEFT;
 		uint32_t dir_right = MOTOR_DIRECTION_RIGHT;
 		uint32_t dir_stop = MOTOR_DIRECTION_STOP;
@@ -993,6 +995,7 @@ uint32_t DoStateMotorControl()
 			pb2_update = 0;
 			TransmitCAN(manual_motor_id, (uint8_t*)&dir_right, 4, 0);
 		}
+		*/
 	}
 
 
@@ -1247,7 +1250,8 @@ uint32_t DoStateCan()
 		// delay_us(50);
 
 		//float wind_spd = (float)sensor_data.wind_speed + dec_test;
-		float pitch_raw = (float)sensor_data.pitch_encoder + dec_test;
+		//float pitch_raw = (float)sensor_data.pitch_encoder + dec_test;
+		float pitch_raw = CalcTSR() + dec_test;
 		TransmitCAN(MARIO_MAST_ANGLE, (uint8_t*)&pitch_raw, 4, 0);
 		delay_ms(2);
 
