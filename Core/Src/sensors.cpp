@@ -213,7 +213,7 @@ float ReadLoadcellADC()
 }
 */
 
-void ReadWheelRPM()
+void ReadWheelRPM() // 500ms interval
 {
 #define RPM_WHEEL_CNT_TIME_INVERSE 2.0f // Same as dividing by 500ms
 #define WHEEL_CNT_PER_ROT 48.0f
@@ -233,32 +233,36 @@ void CalcVehicleSpeed()
 	sensor_data.vehicle_speed = sensor_data.wheel_rpm * wheel_rpm_to_speed;
 }
 
-void ReadRotorRPM()
+void ReadRotorRPM() // 100 ms interval
 {
 	// Process rpm counters
 #define ROTOR_CNT_PER_ROT 360.0f
 #define RPM_ROTOR_CNT_TIME_INVERSE 10.0f // Same as dividing by 100ms
-		// static const float rotor_counter_to_rpm_constant = (RPM_ROTOR_CNT_TIME_INVERSE / ROTOR_CNT_PER_ROT) * 60.0f;
+		static const float rotor_counter_to_rpm_constant = (RPM_ROTOR_CNT_TIME_INVERSE / ROTOR_CNT_PER_ROT) * 60.0f;
 
 		// sensor_data.wheel_rpm = (float)wheel_rpm_counter * wheel_counter_to_rpm_constant;
 		// sensor_data.wheel_rpm = (float)wheel_rpm_counter;
-		// sensor_data.rotor_rpm = (float)rotor_rpm_counter * rotor_counter_to_rpm_constant;
-		float rotor_rpm = (float)rotor_rpm_counter;
-		if (rotor_rpm > 0)
-		{
-			rotor_rpm_counter = 0;
-		}
-
+		float rotor_rpm = (float)rotor_rpm_counter * rotor_counter_to_rpm_constant;
 		rotor_rpm_counter = 0;
 
+#define RPM_ROTOR_ABR_IGNORE_CNT 4
+		static int ignore_counter = 0;
 		if (abs(sensor_data.rotor_rpm - rotor_rpm) > 500)
 		{
+			ignore_counter++;
+			if (ignore_counter == RPM_ROTOR_ABR_IGNORE_CNT)
+			{
+				ignore_counter = 0;
+				// Force update the value
+				sensor_data.rotor_rpm = rotor_rpm;
+			}
 			// Ignore
-			// return sensor_data.rotor_rpm;
+			return;
 		}
-		sensor_data.rotor_rpm = rotor_rpm;
+		ignore_counter = 0;
 
-		// return rotor_rpm;
+
+		sensor_data.rotor_rpm = rotor_rpm;
 }
 
 uint32_t ReadPitchEncoder()
