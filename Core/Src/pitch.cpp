@@ -10,8 +10,6 @@
 
 
 #define KNOTS_TO_MS 0.514444f
-// #define PALE_RADIUS 0.918f
-#define PALE_RADIUS 0.89f
 #define ENCODER_TO_PALES_RATIO (3.0f / 2.0f)
 
 
@@ -76,11 +74,12 @@ float CalcTSR()
 	// float rotor_speed_omega = RPM_TO_RADS * 500.0f;
 
 	// float wind_speed_ms = KNOTS_TO_MS * sensor_data.wind_speed;
-	float wind_speed_ms = sensor_data.wind_speed;
+	float wind_speed_ms = sensor_data.wind_speed_avg;
 
 	if (abs(wind_speed_ms) < MIN_EPSILON)
 		return 0.0f;
 
+#define PALE_RADIUS 0.89f
 	float tsr = (PALE_RADIUS * rotor_speed_omega) / wind_speed_ms;
 
 	if (tsr < MIN_EPSILON)
