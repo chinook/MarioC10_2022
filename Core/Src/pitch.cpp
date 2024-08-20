@@ -69,12 +69,14 @@ float CalcPitchAnglePales(uint8_t bound_angle)
 float CalcTSR()
 {
 	static const float RPM_TO_RADS = 2.0f * PI / 60.0f;
+
+
 	float rotor_speed_omega = RPM_TO_RADS * sensor_data.rotor_rpm;
-	// float rotor_speed_omega = sensor_data.rotor_rpm;
-	// float rotor_speed_omega = RPM_TO_RADS * 500.0f;
+	//float rotor_speed_omega = RPM_TO_RADS * 800;
 
 	// float wind_speed_ms = KNOTS_TO_MS * sensor_data.wind_speed;
 	float wind_speed_ms = sensor_data.wind_speed_avg;
+	//float wind_speed_ms = 12;
 
 	if (abs(wind_speed_ms) < MIN_EPSILON)
 		return 0.0f;
@@ -124,7 +126,16 @@ float CalcPitchAuto()
 							  0.000967116 * tsr10 -
 							  0.000015428 * tsr11;
 		}
-		return -pitch_target;
+		pitch_target = -pitch_target;
+		/*
+		if (pitch_target >= -4) {
+			pitch_target = -4;
+		}
+		else if (pitch_target <= -17) {
+			pitch_target = -17;
+		}
+		*/
+		return pitch_target;
 	}
 }
 

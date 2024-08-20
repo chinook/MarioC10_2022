@@ -48,12 +48,17 @@ float wind_direction_n180_0_p180(float wind_direction_0_360)
 }
 
 
+#define END_OF_MOY_DIRECTION 50
+uint16_t moy_direction_ctu = 0;
+uint8_t new_moy_wind_direction = 0;
+float moy_wind_direction = 0;
 void ReadWeatherStation()
 {
 	if (!ws_receive_flag)
 		return;
-
 	ws_receive_flag = 0;
+
+
 
 	static char frame_begin[] = "$IIMWV";
 
@@ -100,12 +105,24 @@ void ReadWeatherStation()
 			// Wind direction correction from 0->360 to -180->180
 			wind_dir = wind_direction_n180_0_p180(wind_dir);
 
-			wind_dirs[wind_dir_last_idx++] = wind_dir;
+			moy_direction_ctu++;
+			moy_wind_direction += wind_dir;
+
+			if (moy_direction_ctu <= 50) {
+				return;
+			}
+			moy_direction_ctu = 0;
+
+			sensor_data.wind_direction_avg = moy_wind_direction / END_OF_MOY_DIRECTION;
+
+			moy_wind_direction = 0;
+
+			//wind_dirs[wind_dir_last_idx++] = wind_dir;
 			wind_speeds[wind_speed_last_idx++] = wind_speed;
-			if (wind_dir_last_idx >= 4) wind_dir_last_idx = 0;
+			//if (wind_dir_last_idx >= 4) wind_dir_last_idx = 0;
 			if (wind_speed_last_idx >= 4) wind_speed_last_idx = 0;
 			// Do the averages
-			sensor_data.wind_direction_avg = (wind_dirs[0] + wind_dirs[1] + wind_dirs[2] + wind_dirs[3]) / 4.0f;
+			//sensor_data.wind_direction_avg = (wind_dirs[0] + wind_dirs[1] + wind_dirs[2] + wind_dirs[3]) / 4.0f;
 			sensor_data.wind_speed_avg = (wind_speeds[0] + wind_speeds[1] + wind_speeds[2] + wind_speeds[3]) / 4.0f;
 
 			sensor_data.wind_direction = wind_dir;// - 120.0f;
@@ -115,7 +132,11 @@ void ReadWeatherStation()
 		}
 	}
 }
+/*
+void get_wind_speed_dir(float* wind_dir) {
 
+}
+*/
 void ReadTorqueLoadcellADC()
 {
 	ADC_ChannelConfTypeDef sConfigChannel8 = {0};

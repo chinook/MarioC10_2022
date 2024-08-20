@@ -179,26 +179,6 @@ uint32_t DoStateUartTx();
 
 void DoStateError();
 
-// Pitch auto algorithm
-
-//float CalcTSR();
-//float CalcPitchAuto();
-
-//float CalcPitchAnglePales(uint8_t bound_angle);
-
-//void SendPitchROPSCmd();
-//void SendPitchAngleCmd(float target_pitch);
-
-
-//HAL_StatusTypeDef ADC_SendI2C(uint8_t addr, uint8_t reg, uint16_t data);
-//uint16_t ADC_ReadI2C(uint8_t addr, uint8_t reg);
-
-//float ReadTorqueADC();
-//float ReadLoadcellADC();
-
-
-//uint32_t ReadPitchEncoder();
-//uint32_t ReadMastEncoder();
 void FloatToString(float value, int decimal_precision, unsigned char* val);
 
 //void ProcessCanMessage();
@@ -208,6 +188,147 @@ HAL_StatusTypeDef TransmitCAN(uint32_t id, uint8_t* buf, uint8_t size, uint8_t w
 
 void delay_us(uint16_t delay16_us);
 void delay_ms(uint16_t delay16_ms);
+
+
+
+int main(void)
+{
+  /* Configure the system clock */
+  SystemClock_Config();
+
+  /* USER CODE BEGIN SysInit */
+
+  /* USER CODE END SysInit */
+
+  /* Initialize all configured peripherals */
+  MX_GPIO_Init();
+  MX_ADC1_Init();
+  MX_CAN1_Init();
+  MX_I2C1_Init();
+  MX_SPI2_Init();
+  MX_UART5_Init();
+  MX_USART2_UART_Init();
+  MX_TIM3_Init();
+  MX_I2C3_Init();
+  MX_TIM4_Init();
+  MX_TIM5_Init();
+  MX_TIM2_Init();
+  MX_TIM1_Init();
+
+
+  flag_weather_station = 0;
+
+  current_state = STATE_INIT;
+
+  while (1) {
+	  ExecuteStateMachine();
+  }
+
+}
+
+void ExecuteStateMachine()
+{
+	// Check for timer flags
+	static int timer_250ms_counter = 0;
+	if (timer_50ms_flag)
+	{
+		flag_acq_interval = 1;
+
+
+		timer_50ms_flag = 0;
+
+		timer_250ms_counter++;
+
+		// flag_can_tx_send = 1;
+		// flag_rpm_process = 1;
+	}
+	if (timer_250ms_counter == 5)
+	{
+		//flag_uart_tx_send = 1;
+		flag_can_tx_send = 1;
+
+		timer_250ms_counter = 0;
+	}
+	static uint8_t can_tx_flag_counter = 0;
+	if (timer_100ms_flag)
+	{
+		timer_100ms_flag = 0;
+
+		flag_acq_interval = 1;
+		flag_rotor_rpm_process = 1;
+		flag_weather_station = 1;
+
+		can_tx_flag_counter++;
+		if (can_tx_flag_counter == 2)
+		{
+			can_tx_flag_counter = 0;
+			flag_can_tx_send = 1;
+		}
+	}
+	if (timer_500ms_flag)
+	{
+		timer_500ms_flag = 0;
+
+		//flag_uart_tx_send = 1;
+		flag_wheel_rpm_process = 1;
+		flag_alive_led = 1;
+		flag_uart_tx_send = 1;
+	}
+
+	// Alive led
+	if (flag_alive_led)
+	{
+		flag_alive_led = 0;
+		HAL_GPIO_TogglePin(LED1_GPIO_Port, LED1_Pin);
+	}
+
+	switch (current_state)
+	{
+	case STATE_INIT:
+		current_state = DoStateInit();
+		break;
+
+	case STATE_ACQUISITION:
+		current_state = DoStateAcquisition();
+		break;
+
+	case STATE_CHECK_ROPS:
+		current_state = DoStateCheckROPS();
+		break;
+
+	case STATE_ROPS:
+		current_state = DoStateROPS();
+		break;
+
+	case STATE_MOTOR_CONTROL:
+		current_state = DoStateMotorControl();
+		break;
+
+	case STATE_CAN:
+		current_state = DoStateCan();
+		break;
+
+	case STATE_DATA_LOGGING:
+		current_state = DoStateDataLogging();
+		break;
+
+	case STATE_UART_TX:
+		current_state = DoStateUartTx();
+		break;
+
+	case STATE_ERROR:
+		DoStateError();
+		// In case we get out of error handling, restart
+		current_state = DoStateInit();
+		break;
+
+	default:
+		current_state = DoStateInit();
+		break;
+	};
+}
+
+
 
 
 /* USER CODE END PFP */
@@ -287,22 +408,6 @@ static float BoundAngleSemiCircle(float angle)
 
 #define MAX_STEPS_PER_CMD 500
 
-static float CalcDeltaPitch(uint32_t reference_point)
-{
-	int32_t delta_pitch = (sensor_data.pitch_encoder - reference_point);
-	uint32_t abs_delta_pitch = abs(delta_pitch);
-
-	// Adjust the pitch value if greater than half distance around full circle
-	if (abs_delta_pitch >= HALF_MAX_VALUE)
-	{
-		if (delta_pitch < 0)
-			delta_pitch = (MAX_PITCH_VALUE - abs_delta_pitch);
-		else
-			delta_pitch = -(MAX_PITCH_VALUE - abs_delta_pitch);
-	}
-
-	return delta_pitch;
-}
 
 //float CalcPitchAnglePales(uint8_t bound_angle)
 //{
@@ -578,108 +683,6 @@ void FloatToString(float value, int decimal_precision, unsigned char* val)
 }
 
 
-
-void ExecuteStateMachine()
-{
-	// Check for timer flags
-	static int timer_250ms_counter = 0;
-	if (timer_50ms_flag)
-	{
-		flag_acq_interval = 1;
-
-		
-		timer_50ms_flag = 0;
-
-		timer_250ms_counter++;
-
-		// flag_can_tx_send = 1;
-		// flag_rpm_process = 1;
-	}
-	if (timer_250ms_counter == 5)
-	{
-		//flag_uart_tx_send = 1;
-		flag_can_tx_send = 1;
-
-		timer_250ms_counter = 0;
-	}
-	static uint8_t can_tx_flag_counter = 0;
-	if (timer_100ms_flag)
-	{
-		timer_100ms_flag = 0;
-
-		flag_acq_interval = 1;
-		flag_rotor_rpm_process = 1;
-
-		can_tx_flag_counter++;
-		if (can_tx_flag_counter == 2)
-		{
-			can_tx_flag_counter = 0;
-			flag_can_tx_send = 1;
-		}
-	}
-	if (timer_500ms_flag)
-	{
-		timer_500ms_flag = 0;
-
-		//flag_uart_tx_send = 1;
-		flag_wheel_rpm_process = 1;
-		flag_alive_led = 1;
-		flag_uart_tx_send = 1;
-	}
-
-	// Alive led
-	if (flag_alive_led)
-	{
-		flag_alive_led = 0;
-		HAL_GPIO_TogglePin(LED1_GPIO_Port, LED1_Pin);
-	}
-
-	switch (current_state)
-	{
-	case STATE_INIT:
-		current_state = DoStateInit();
-		break;
-
-	case STATE_ACQUISITION:
-		current_state = DoStateAcquisition();
-		break;
-
-	case STATE_CHECK_ROPS:
-		current_state = DoStateCheckROPS();
-		break;
-
-	case STATE_ROPS:
-		current_state = DoStateROPS();
-		break;
-
-	case STATE_MOTOR_CONTROL:
-		current_state = DoStateMotorControl();
-		break;
-
-	case STATE_CAN:
-		current_state = DoStateCan();
-		break;
-
-	case STATE_DATA_LOGGING:
-		current_state = DoStateDataLogging();
-		break;
-
-	case STATE_UART_TX:
-		current_state = DoStateUartTx();
-		break;
-
-	case STATE_ERROR:
-		DoStateError();
-		// In case we get out of error handling, restart
-		current_state = DoStateInit();
-		break;
-
-	default:
-		current_state = DoStateInit();
-		break;
-	};
-}
-
 uint32_t DoStateInit()
 {
 	wheel_rpm_counter = 0;
@@ -731,210 +734,6 @@ uint32_t DoStateInit()
 	*/
 
 	return STATE_ACQUISITION;
-}
-int main(void)
-{
-  /* USER CODE BEGIN 1 */
-
-  /* USER CODE END 1 */
-
-  /* MCU Configuration--------------------------------------------------------*/
-
-  /* Reset of all peripherals, Initializes the Flash interface and the Systick. */
-  HAL_Init();
-
-  /* USER CODE BEGIN Init */
-
-  /* USER CODE END Init */
-
-  /* Configure the system clock */
-  SystemClock_Config();
-
-  /* USER CODE BEGIN SysInit */
-
-  /* USER CODE END SysInit */
-
-  /* Initialize all configured peripherals */
-  MX_GPIO_Init();
-  MX_ADC1_Init();
-  MX_CAN1_Init();
-  MX_I2C1_Init();
-  MX_SPI2_Init();
-  MX_UART5_Init();
-  MX_USART2_UART_Init();
-  MX_TIM3_Init();
-  MX_I2C3_Init();
-  MX_TIM4_Init();
-  MX_TIM5_Init();
-  MX_TIM2_Init();
-  MX_TIM1_Init();
-  /* USER CODE BEGIN 2 */
-
-  // HAL_UART_Receive_IT(&huart5, (uint8_t *)aRxBuffer, sizeof(aRxBuffer));
-  /*
-  HAL_TIM_Base_Start_IT(&htim1);
-  HAL_TIM_Base_Start_IT(&htim2);
-  HAL_TIM_Base_Start_IT(&htim3);
-  HAL_TIM_Base_Start_IT(&htim4);
-  HAL_TIM_Base_Start_IT(&htim5);
-  */
-
-
-  current_state = STATE_INIT;
-
-  /*
-  DoStateInit();
-  delay_us(100);
-
-  while (1)
-  {
-	  delay_ms(2);
-	    // delay_us(100);
-
-	    // Make sure not to saturate cpu with state machine
-		// delay_us(250);
-
-	  __disable_irq();
-
-		// Check for timer flags
-		if (timer_50ms_flag)
-		{
-			timer_50ms_flag = 0;
-
-			// flag_can_tx_send = 1;
-			// flag_rpm_process = 1;
-		}
-		if (timer_100ms_flag)
-		{
-			timer_100ms_flag = 0;
-
-			flag_acq_interval = 1;
-			flag_rpm_process = 1;
-			flag_can_tx_send = 1;
-		}
-		if (timer_500ms_flag)
-		{
-			timer_500ms_flag = 0;
-
-			flag_alive_led = 1;
-			flag_uart_tx_send = 1;
-		}
-
-		// Alive led
-		if (flag_alive_led)
-		{
-			flag_alive_led = 0;
-			HAL_GPIO_TogglePin(LED1_GPIO_Port, LED1_Pin);
-		}
-
-		__enable_irq();
-		// HAL_Delay(500);
-		// HAL_GPIO_TogglePin(LED1_GPIO_Port, LED1_Pin);
-  }
-  */
-
-
-  while (1)
-  {
-	  //delay_us(100);
-	  // HAL_Delay(100);
-	  // uint32_t dir = 0x200;
-	  //TransmitCAN(MARIO_PITCH_MANUAL_CMD, (uint8_t*)&dir, 4, 0);
-
-	  ExecuteStateMachine();
-
-	  // Delay important to not saturate cpu with state machine
-	  //for (int i = 0; i < 2500; ++i) {}
-	  //HAL_Delay(5);
-  }
-
-
-/*
-  uint32_t dir_left = MOTOR_DIRECTION_LEFT;
-  uint32_t dir_right = MOTOR_DIRECTION_RIGHT;
-  uint32_t dir_stop = MOTOR_DIRECTION_STOP;
-
-  DoStateInit();
-  while (1)
-  {
-	  HAL_Delay(10);
-
-	  if (timer_500ms_flag)
-      {
-		  timer_500ms_flag = 0;
-
-		  HAL_GPIO_TogglePin(LED1_GPIO_Port, LED1_Pin);
-	  }
-
-	  uint8_t buf[4];
-
-	  if(GPIO_PIN_SET == HAL_GPIO_ReadPin(PB2_GPIO_Port, PB2_Pin)) // PD_14 -- PB2
-	  {
-		//HAL_GPIO_TogglePin(LED4_GPIO_Port, LED4_Pin);
-		//HAL_GPIO_WritePin(LED4_GPIO_Port, LED4_Pin, GPIO_PIN_SET);
-		  if (pb2_value == 1)
-		  {
-			  pb2_value = 0;
-			  HAL_GPIO_WritePin(LED4_GPIO_Port, LED4_Pin, GPIO_PIN_RESET);
-
-			  memcpy(buf, &dir_stop, 4);
-			  TransmitCAN(0x71, buf, 4, 0);
-		  }
-	  }
-	  if (GPIO_PIN_SET == HAL_GPIO_ReadPin(PB1_GPIO_Port, PB1_Pin)) // PD_15 -- PB1
-	  {
-		//HAL_GPIO_TogglePin(LED3_GPIO_Port, LED3_Pin);
-		//HAL_GPIO_WritePin(LED3_GPIO_Port, LED3_Pin, GPIO_PIN_SET);
-		  if (pb1_value == 1)
-		  {
-			  pb1_value = 0;
-			  HAL_GPIO_WritePin(LED3_GPIO_Port, LED3_Pin, GPIO_PIN_RESET);
-
-			  memcpy(buf, &dir_stop, 4);
-			  TransmitCAN(0x71, buf, 4, 0);
-		  }
-	  }
-
-	  if (pb1_update)
-	  {
-		  memcpy(buf, &dir_left, 4);
-		  TransmitCAN(0x71, buf, 4, 0);
-		  pb1_update = 0;
-	  }
-	  if (pb2_update)
-	  {
-		  memcpy(buf, &dir_right, 4);
-		  TransmitCAN(0x71, buf, 4, 0);
-		  pb2_update = 0;
-	  }
-
-  }
-  */
-
-
-  /* USER CODE END 2 */
-
-  /* Infinite loop */
-  /* USER CODE BEGIN WHILE */
-  while (1)
-  {
-
-	  ExecuteStateMachine();
-
-	  // Alive blinking led
-	  // TODO: (Marc) Timer for blinking alive led
-
-	  // TODO: (Marc) Better to do a proper timer for better resolution
-	  // HAL_Delay(5);
-
-
-	  // HAL_Delay(500);
-
-    /* USER CODE END WHILE */
-
-    /* USER CODE BEGIN 3 */
-  }
-  /* USER CODE END 3 */
 }
 
 uint32_t DoStateAcquisition()
@@ -1144,7 +943,7 @@ uint32_t DoStateCheckROPS()
 uint32_t DoStateMotorControl()
 {
 #define AUTO_MAT 	1
-#define AUTO_PITCH 	0
+#define AUTO_PITCH 	1
 
 	if (AUTO_MAT == 1) {
 		if (sensor_data.feedback_mast_mode != MOTOR_MODE_AUTOMATIC) {

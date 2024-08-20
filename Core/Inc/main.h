@@ -132,6 +132,8 @@ extern uint8_t timer_100ms_flag;
 extern uint8_t timer_250ms_flag;
 extern uint8_t timer_500ms_flag;
 
+static uint8_t flag_weather_station;
+
 // Weather station
 extern uint8_t rx_buff[128];
 extern uint8_t index_buff;
