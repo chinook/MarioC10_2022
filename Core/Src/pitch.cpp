@@ -12,7 +12,11 @@
 #define KNOTS_TO_MS 0.514444f
 #define ENCODER_TO_PALES_RATIO (3.0f / 2.0f)
 
+static float log_pitch[200] = {0};
+static bool startup_filter_pitch_angle = 1;
 
+bool filter_pitch_angle(float pitch_angle);
+void log_pitch_angle(float pitch_angle);
 
 float BoundAngleSemiCircle(float angle);
 float CalcDeltaPitch(uint32_t reference_point);
@@ -61,8 +65,52 @@ float CalcPitchAnglePales(uint8_t bound_angle)
 		pitch_angle = BoundAngleSemiCircle(pitch_angle);
 
 	// float bounded_pitch_angle = BoundAngleSemiCircle(pitch_angle);
+	/*
+	if (startup_filter_pitch_angle == 1) {
+		if (pitch_angle != 0) {
+			startup_filter_pitch_angle = 0;
+			for (int i = 0; i>10; i++) {
+				log_pitch[i] = pitch_angle;
+			}
+		}
+	}
 
+	static float pitch_angle_old;
+	if (filter_pitch_angle(pitch_angle) != 1) {
+		pitch_angle = pitch_angle_old;
+	}
+
+	if (pitch_angle != pitch_angle_old) {
+		pitch_angle_old = pitch_angle;
+		log_pitch_angle(pitch_angle);
+	}
+	*/
+	//pitch_angle = 300;
 	return pitch_angle;
+}
+
+bool filter_pitch_angle(float pitch_angle) {
+	if (pitch_angle == 0) {
+		return false;
+	}
+	float moy_pitch_angle = 0;
+	for (int i = 0; i>10; i++) {
+		moy_pitch_angle += log_pitch[i];
+	}
+	moy_pitch_angle /= 10;
+	if ((pitch_angle > moy_pitch_angle - 5) && (pitch_angle < moy_pitch_angle + 5)) {
+		return true;
+	}
+	else {
+		return false;
+	}
+}
+
+void log_pitch_angle(float pitch_angle) {
+	for (int i = 198; i>=0; i--) {
+		log_pitch[i+1] = log_pitch[i];
+	}
+	log_pitch[0] = pitch_angle;
 }
 
 

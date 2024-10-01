@@ -234,7 +234,7 @@ void ExecuteStateMachine()
 	{
 		flag_acq_interval = 1;
 
-
+		flag_can_tx_send = 1;
 		timer_50ms_flag = 0;
 
 		timer_250ms_counter++;
@@ -245,11 +245,10 @@ void ExecuteStateMachine()
 	if (timer_250ms_counter == 5)
 	{
 		//flag_uart_tx_send = 1;
-		flag_can_tx_send = 1;
+
 
 		timer_250ms_counter = 0;
 	}
-	static uint8_t can_tx_flag_counter = 0;
 	if (timer_100ms_flag)
 	{
 		timer_100ms_flag = 0;
@@ -257,13 +256,6 @@ void ExecuteStateMachine()
 		flag_acq_interval = 1;
 		flag_rotor_rpm_process = 1;
 		flag_weather_station = 1;
-
-		can_tx_flag_counter++;
-		if (can_tx_flag_counter == 2)
-		{
-			can_tx_flag_counter = 0;
-			flag_can_tx_send = 1;
-		}
 	}
 	if (timer_500ms_flag)
 	{
@@ -363,49 +355,6 @@ static float BoundAngleSemiCircle(float angle)
 		return angle;
 }
 
-
-//float CalcTSR()
-//{
-//#define PI 3.1415926535f
-//	static const float RPM_TO_RADS = 2.0f * PI / 60.0f;
-//	float rotor_speed_omega = RPM_TO_RADS * sensor_data.rotor_rpm;
-//
-//#define KNOTS_TO_MS 0.514444f
-//	float wind_speed_ms = KNOTS_TO_MS * sensor_data.wind_speed;
-//
-//#define PALE_RADIUS 0.918f
-//
-//	float tsr = (PALE_RADIUS * rotor_speed_omega) / wind_speed_ms;
-//	return tsr;
-//}
-
-//float CalcPitchAuto()
-//{
-//	float tsr = CalcTSR();
-//
-//	float tsr2 = tsr * tsr;
-//	float tsr3 = tsr2 * tsr;
-//	float tsr4 = tsr2 * tsr2;
-//	float tsr5 = tsr4 * tsr;
-//	float tsr6 = tsr3 * tsr2;
-//
-//	float pitch_target = -0.00361082f *  tsr6 +
-//						  0.12772891f *  tsr5 -
-//						  1.76974117f *  tsr4 +
-//						  11.90368681f * tsr3 -
-//						  38.19438424f * tsr2 +
-//						  43.63402687f * tsr +
-//						  4.55041087;
-//
-//	return pitch_target;
-//}
-
-
-//#define MAX_PITCH_VALUE 4194303
-//#define HALF_MAX_VALUE 2097152
-//#define PITCH_ABSOLUTE_ZERO 1668850
-//#define PITCH_ABSOLUTE_ROPS 2520743
-
 #define MAX_STEPS_PER_CMD 500
 
 
@@ -481,13 +430,13 @@ static float BoundAngleSemiCircle(float angle)
 void SendROPSCmdCan(uint32_t rops_cmd)
 {
 	TransmitCAN(MARIO_ROPS_CMD, (uint8_t*)&rops_cmd, 4, 0);
-	delay_us(100);
+	//delay_us(100);
 }
 void SendPitchCmdCan(int nb_steps)
 {
 	TransmitCAN(MARIO_PITCH_CMD, (uint8_t*)&nb_steps, 4, 0);
 	pitch_done = 0;
-	delay_us(100);
+	//delay_us(100);
 }
 
 HAL_StatusTypeDef ADC_SendI2C(uint8_t addr, uint8_t reg, uint16_t data)
@@ -924,7 +873,7 @@ uint32_t DoStateAcquisition()
 
 uint32_t DoStateCheckROPS()
 {
-#define ROTOR_RPM_ROPS 1200
+#define ROTOR_RPM_ROPS 1300
 	if (sensor_data.rotor_rpm > ROTOR_RPM_ROPS)
 	{
 		b_rops = 1;
@@ -950,7 +899,6 @@ uint32_t DoStateMotorControl()
 			uint8_t mast_mode = MOTOR_MODE_AUTOMATIC;
 			TransmitCAN(MARIO_MAST_MODE_CMD, &mast_mode, 4, 1);
 		}
-
 		DoMastControl();
 	}
 	else {
@@ -958,7 +906,12 @@ uint32_t DoStateMotorControl()
 			uint8_t mast_mode = MOTOR_MODE_MANUAL;
 			TransmitCAN(MARIO_MAST_MODE_CMD, &mast_mode, 4, 1);
 		}
-
+		/*
+		if (sensor_data.limit1 == 0 || sensor_data.limit2 == 0) {
+			uint32_t dir_stop = 0x100;
+			TransmitCAN(MARIO_MAST_MANUAL_CMD, (uint8_t*)&dir_stop, 4, 1);
+		}
+		*/
 		/*
 		uint32_t dir_left = MOTOR_DIRECTION_LEFT;
 		uint32_t dir_right = MOTOR_DIRECTION_RIGHT;
@@ -1070,7 +1023,7 @@ uint32_t DoStateROPS()
 			SendPitchROPSCmd();
 		}
 
-
+		SendPitchAngleCmd(90);
 		DoStateAcquisition();
 		DoStateMotorControl();
 
@@ -1095,122 +1048,16 @@ uint32_t DoStateROPS()
 
 uint32_t DoStateCan()
 {
-	/*
-=======
-#define MARIO_PITCH_ANGLE 0x01
-#define MARIO_MAST_ANGLE 0x02
-#define MARIO_TURBINE_RPM 0x03
-#define MARIO_WHEEL_RPM 0x04
-#define MARIO_WIND_DIRECTION 0x05
-#define MARIO_WIND_SPEED 0x06
-
-#define MARIO_LOADCELL 0x09
-#define MARIO_TORQUE 0x0A
-#define MARIO_LIMIT_SWITCH 0x0B
-	*/
-
-	/*
-	if (flag_can_tx_send) // Sent every 100ms
-	{
-		flag_can_tx_send = 0;
-
-
-		float pitch_val = sensor_data.pitch_angle;
-		TransmitCAN(MARIO_PITCH_ANGLE, (uint8_t*)&pitch_val, 4, 0);
-		delay_us(100);
-
-		TransmitCAN(MARIO_ROTOR_RPM, (uint8_t*)&sensor_data.rotor_rpm, 4, 0);
-		delay_us(100);
-
-		TransmitCAN(MARIO_TORQUE, (uint8_t*)&sensor_data.torque, 4, 0);
-		delay_us(100);
-
-		TransmitCAN(MARIO_LOADCELL, (uint8_t*)&sensor_data.loadcell, 4, 0);
-		delay_us(100);
-
-		float wind_speed_ms = sensor_data.wind_speed;
-		static float test_test = 0.1f;
-		test_test += 0.1f;
-		// TransmitCAN(MARIO_WIND_SPEED, (uint8_t*)&wind_speed_ms, 4, 0);
-		TransmitCAN(MARIO_WIND_SPEED, (uint8_t*)&test_test, 4, 0);
-		delay_us(100);
-
-		float wheel_rpm_adj = sensor_data.wheel_rpm + 1;
-		TransmitCAN(MARIO_WHEEL_RPM, (uint8_t*)&wheel_rpm_adj, 4, 0);
-		delay_us(100);
-
-		// uint32_t gear = 4;
-		// TransmitCAN(MARIO_GEAR_TARGET, (uint8_t*)&gear, 4, 0);
-		// delay_us(100);
-
-		// float pitch_angle = 23.89f;
-		// TransmitCAN(MARIO_PITCH_ANGLE, (uint8_t*)&pitch_angle, 4, 0);
-		sensor_data.pitch_angle = CalcPitchAnglePales(TRUE);
-		TransmitCAN(MARIO_PITCH_ANGLE, (uint8_t*)&sensor_data.pitch_angle, 4, 0);
-		delay_us(100);
-
-		// float rotor_rpm = 234.6f;
-		// TransmitCAN(MARIO_ROTOR_RPM, (uint8_t*)&rotor_rpm, 4, 0);
-		TransmitCAN(MARIO_ROTOR_RPM, (uint8_t*)&sensor_data.rotor_rpm, 4, 0);
-		delay_us(100);
-
-
-
-		// Power = 328.44f
-		// float torque = 0.0f;
-		// TransmitCAN(MARIO_TORQUE, (uint8_t*)&torque, 4, 0);
-		delay_us(100);
-
-		// static float wind_speed = 12.78f;
-		// wind_speed += 0.1f;
-		// TransmitCAN(MARIO_WIND_SPEED, (uint8_t*)&wind_speed, 4, 0);
-//#define KNOTS_TO_MS 0.514444f
-//		float wind_speed_ms = KNOTS_TO_MS * sensor_data.wind_speed;
-
-		//float wind_speed = sensor_data.wind_speed;
-		//TransmitCAN(MARIO_WIND_SPEED, (uint8_t*)&wind_speed, 4, 0);
-		//delay_us(100);
-
-		TransmitCAN(MARIO_WHEEL_RPM, (uint8_t*)&sensor_data.wheel_rpm, 4, 0);
-		delay_us(100);
-
-
-
-		// float tsr = CalcTSR();
-		// TransmitCAN(MARIO_TIP_SPEED_RATIO, (uint8_t*)&tsr, 4, 0);
-		// delay_us(100);
-
-//		float wind_dir = sensor_data.wind_direction;
-//		TransmitCAN(MARIO_WIND_DIRECTION, (uint8_t*)&wind_dir, 4, 0);
-//		delay_us(100);
-//
-//		uint8_t rops_feedback = b_rops;
-//		TransmitCAN(MARIO_ROPS_FEEDBACK, (uint8_t*)&rops_feedback, 4, 0);
-//		delay_us(100);
-
-//		TransmitCAN(MARIO_TIP_SPEED_RATIO, (uint8_t*)&tsr, 4, 0);
-//		delay_us(100);
-
-		float wind_dir = sensor_data.wind_direction - 120.0f;
-		TransmitCAN(MARIO_WIND_DIRECTION, (uint8_t*)&wind_dir, 4, 0);
-		delay_us(100);
-
-
-	}
-	*/
-
-
-
 	static float temp = 0.10f;
 
 	// DEBUG DEBUG -- CAN Volant
 
-	if (flag_can_tx_send) // Sent every 100ms
+	if (1) // flag_can_tx_send Sent every 100ms
 	{
 		// temp += 0.10f;
 
 		flag_can_tx_send = 0;
-
+		/*
 		static uint8_t uint_buffer_test[] = { 111, 112, 113, 114, 115, 116, 117, 118, 119, 210 };
 		static float float_buffer_test[] = { 9.10f, 9.20f, 9.30f, 9.40f, 9.50f, 9.60f, 9.70f, 9.80f, 9.90f };
 		float_buffer_test[0] += temp;
@@ -1239,64 +1086,85 @@ uint32_t DoStateCan()
 
 		uint8_t uint_buffer_index = 0;
 		uint8_t float_buffer_index = 0;
-
+		*/
 		static float dec_test = 0.0f;
 		dec_test += 0.0001f;
-		if (dec_test >= 0.3f)
+		if (dec_test >= 0.009f)
 			dec_test = 0.0001f;
-		// uint32_t count = 0;
 
-		// TransmitCAN(MARIO_GEAR_TARGET, (uint8_t*)&uint_buffer_test[uint_buffer_index++], 4, 0);
-		// delay_us(50);
+		static float tsr_refresh = 10;
+		tsr_refresh += 10;
+		if (tsr_refresh >= 100)
+			tsr_refresh = 10;
 
-		//float wind_spd = (float)sensor_data.wind_speed + dec_test;
-		//float pitch_raw = (float)sensor_data.pitch_encoder + dec_test;
-		float pitch_raw = CalcTSR() + dec_test;
-		TransmitCAN(MARIO_MAST_ANGLE, (uint8_t*)&pitch_raw, 4, 0);
-		delay_ms(2);
+		static uint32_t can_tx_state = 0;
+		if (can_tx_state == 0) {
+				float pitch_raw = CalcTSR() + dec_test;
+				TransmitCAN(MARIO_MAST_ANGLE, (uint8_t*)&pitch_raw, 4, 0);
+				can_tx_state++;
+		} else if (can_tx_state == 1) {
+				float wind_spd = (float)sensor_data.wind_speed + dec_test;
+				TransmitCAN(MARIO_WIND_SPEED, (uint8_t*)&wind_spd, 4, 0);
+				can_tx_state++;
+		} else if (can_tx_state == 2) {
+				float pitch_enc = (float)sensor_data.pitch_angle + dec_test;
+				TransmitCAN(MARIO_PITCH_ANGLE, (uint8_t*)&pitch_enc, 4, 0);
+				can_tx_state++;
+		} else if (can_tx_state == 3) {
+				float rpm_raw = (float)sensor_data.rotor_rpm + dec_test;
+				TransmitCAN(MARIO_ROTOR_RPM, (uint8_t*)&rpm_raw, 4, 0);
+				can_tx_state++;
+		} else if (can_tx_state == 4) {
+				float pitch2 = (float)sensor_data.wheel_rpm + dec_test;
+				TransmitCAN(MARIO_WHEEL_RPM, (uint8_t*)&pitch2, 4, 0);
+				can_tx_state++;
+		} else if (can_tx_state == 5) {
+				float wind_dir = (float)sensor_data.wind_direction + dec_test;
+				TransmitCAN(MARIO_WIND_DIRECTION, (uint8_t*)&wind_dir, 4, 0);
+				can_tx_state = 0;
+		}
+
+		//delay_ms(2);
 
 		// TransmitCAN(MARIO_WIND_SPEED, (uint8_t*)&float_buffer_test[4], 4, 0);
-		float wind_spd = (float)sensor_data.wind_speed + dec_test;
-		TransmitCAN(MARIO_WIND_SPEED, (uint8_t*)&wind_spd, 4, 0);
-		delay_ms(2);
+
+		//delay_ms(2);
 
 		// TransmitCAN(MARIO_PITCH_ANGLE, (uint8_t*)&(float_buffer_test[0]), 4, 0);
 		// TransmitCAN(MARIO_PITCH_ANGLE, (uint8_t*)&sensor_data.pitch_angle, 4, 0);
-
-
+		/*
+		static float tsr_refresh_1000 = 1000;
+		tsr_refresh_1000 += 1000;
+		if (tsr_refresh_1000 >= 10000)
+			tsr_refresh_1000 = 1000;
+		if (sensor_data.pitch_angle < 0) {
+			tsr_refresh_1000 = -tsr_refresh_1000;
+		}
+		*/
 		// float pitch_enc = (float)sensor_data.rotor_rpm + dec_test;
-		float pitch_enc = (float)sensor_data.pitch_angle + dec_test;
-		TransmitCAN(MARIO_PITCH_ANGLE, (uint8_t*)&pitch_enc, 4, 0);
-		delay_us(100);
-		delay_ms(2);
+
+		//delay_us(100);
+		//delay_ms(2);
 
 		// sensor_data.pitch_encoder = 2401;
 		// float rpm_test = (float)sensor_data.pitch_encoder + dec_test;
-		float rpm_raw = (float)sensor_data.rotor_rpm + dec_test;
-		if (rpm_raw > 10)
-		{
-			delay_us(10);
-		}
-		// float rpm_raw = 90.45f;
-		TransmitCAN(MARIO_ROTOR_RPM, (uint8_t*)&rpm_raw, 4, 0);
-		delay_us(100);
-		delay_ms(2);
+
+		//delay_us(100);
+		//delay_ms(2);
 
 		// sensor_data.wheel_rpm = float_buffer_test[2];
 		//TransmitCAN(MARIO_WHEEL_RPM, (uint8_t*)&sensor_data.wheel_rpm, 4, 0);
 		// float pitch2 = (float)sensor_data.pitch_angle * (float)sensor_data.wheel_rpm;
 		// float pitch2 = ((float)(sensor_data.wheel_rpm)+1.0f) * 2.0f;
-		float pitch2 = (float)sensor_data.wheel_rpm + dec_test;
-		TransmitCAN(MARIO_WHEEL_RPM, (uint8_t*)&pitch2, 4, 0);
+
 		// TransmitCAN(MARIO_WHEEL_RPM, (uint8_t*)&float_buffer_test[2], 4, 0);
-		delay_us(100);
-		delay_ms(2);
+		//delay_us(100);
+		//delay_ms(2);
 
 		// TransmitCAN(MARIO_WIND_DIRECTION, (uint8_t*)&float_buffer_test[3], 4, 0);
-		float wind_dir = (float)sensor_data.wind_direction + dec_test;
-		TransmitCAN(MARIO_WIND_DIRECTION, (uint8_t*)&wind_dir, 4, 0);
-		delay_us(100);
-		delay_ms(2);
+
+		//delay_us(100);
+		//delay_ms(2);
 
 		// delay_ms(10);
 
@@ -1310,8 +1178,8 @@ uint32_t DoStateCan()
 		// TODO: (Marc) Batt voltage + Batt current
 		// TODO: (Marc) Limit switch
 
-		static const uint8_t mode_test_manual = MOTOR_MODE_MANUAL;
-		static const uint8_t mode_test_automatic = MOTOR_MODE_AUTOMATIC;
+		//static const uint8_t mode_test_manual = MOTOR_MODE_MANUAL;
+		//static const uint8_t mode_test_automatic = MOTOR_MODE_AUTOMATIC;
 
 		//TransmitCAN(MARIO_PITCH_MODE_FEEDBACK, (uint8_t*)&mode_test_manual, 4, 0);
 		//delay_us(5);
@@ -1329,135 +1197,6 @@ uint32_t DoStateCan()
 		// delay_us(50);
 
 	}
-
-
-
-	// DEBUG DEBUG -- CAN Volant
-	/*
-	if (flag_can_tx_send) // Sent every 100ms
-	{
-		flag_can_tx_send = 0;
-
-		static const uint8_t uint_buffer_test[] = { 111, 112, 113, 114, 115, 116, 117, 118, 119, 210 };
-		static const float float_buffer_test[] = { 9.10f, 9.20f, 9.30f, 9.40f, 9.50f, 9.60f, 9.70f, 9.80f, 9.90f };
-
-		uint8_t uint_buffer_index = 0;
-		uint8_t float_buffer_index = 0;
-
-		//TransmitCAN(MARIO_GEAR_TARGET, (uint8_t*)&uint_buffer_test[uint_buffer_index++], 4, 0);
-		//delay_us(50);
-
-		TransmitCAN(MARIO_PITCH_ANGLE, (uint8_t*)&float_buffer_test[float_buffer_index++], 4, 0);
-		delay_us(50);
-
-		// TransmitCAN(MARIO_MAST_ANGLE, (uint8_t*)&sensor_data.mast_angle, 4, 0);
-		// delay_us(50);
-
-		// TransmitCAN(MARIO_MAST_ANGLE, (uint8_t*)&sensor_data.vehicle_speed, 4, 0);
-		// delay_us(50);
-
-		TransmitCAN(MARIO_ROTOR_RPM, (uint8_t*)&float_buffer_test[float_buffer_index++], 4, 0);
-		delay_us(50);
-
-		TransmitCAN(MARIO_WHEEL_RPM, (uint8_t*)&float_buffer_test[float_buffer_index++], 4, 0);
-		delay_us(50);
-
-		TransmitCAN(MARIO_WIND_DIRECTION, (uint8_t*)&float_buffer_test[float_buffer_index++], 4, 0);
-		delay_us(50);
-
-		TransmitCAN(MARIO_WIND_SPEED, (uint8_t*)&float_buffer_test[float_buffer_index++], 4, 0);
-		delay_us(50);
-
-		// TransmitCAN(MARIO_TORQUE, (uint8_t*)&sensor_data.torque, 4, 0);
-		// delay_us(50);
-
-		// TransmitCAN(MARIO_LOADCELL, (uint8_t*)&sensor_data.loadcell, 4, 0);
-		// delay_us(50);
-
-		// TODO: (Marc) Batt voltage + Batt current
-		// TODO: (Marc) Limit switch
-
-		static const uint8_t mode_test_manual = MOTOR_MODE_MANUAL;
-		static const uint8_t mode_test_automatic = MOTOR_MODE_AUTOMATIC;
-
-		TransmitCAN(MARIO_PITCH_MODE_FEEDBACK, (uint8_t*)&mode_test_manual, 4, 0);
-		delay_us(50);
-
-		TransmitCAN(MARIO_MAST_MODE_FEEDBACK, (uint8_t*)&mode_test_automatic, 4, 0);
-		delay_us(50);
-
-		// static const uint8_t rops_test = ROPS_ENABLE;
-		static const uint8_t rops_test = 1;
-
-		TransmitCAN(MARIO_ROPS_FEEDBACK, (uint8_t*)&rops_test, 4, 0);
-		delay_us(50);
-
-		// Also send the turbine rpm value to the drive motor for ROPS detection
-		// TransmitCAN(MARIO_MOTOR_ROTOR_RPM, (uint8_t*)&sensor_data.rotor_rpm, 4, 0);
-		// delay_us(50);
-	}
-	*/
-
-
-	/*
-	if (flag_can_tx_send) // Sent every 100ms
-	{
-		flag_can_tx_send = 0;
-
-		uint32_t gear_target = 0;
-		TransmitCAN(MARIO_GEAR_TARGET, (uint8_t*)&gear_target, 4, 0);
-		delay_us(50);
-
-		TransmitCAN(MARIO_PITCH_ANGLE, (uint8_t*)&sensor_data.pitch_angle, 4, 0);
-		delay_us(50);
-
-		// TransmitCAN(MARIO_MAST_ANGLE, (uint8_t*)&sensor_data.mast_angle, 4, 0);
-		// delay_us(50);
-
-		// TransmitCAN(MARIO_MAST_ANGLE, (uint8_t*)&sensor_data.vehicle_speed, 4, 0);
-		// delay_us(50);
-
-		TransmitCAN(MARIO_ROTOR_RPM, (uint8_t*)&sensor_data.rotor_rpm, 4, 0);
-		delay_us(50);
-
-		TransmitCAN(MARIO_WHEEL_RPM, (uint8_t*)&sensor_data.wheel_rpm, 4, 0);
-		delay_us(50);
-
-		TransmitCAN(MARIO_WIND_DIRECTION, (uint8_t*)&sensor_data.wind_direction, 4, 0);
-		delay_us(50);
-
-		TransmitCAN(MARIO_WIND_SPEED, (uint8_t*)&sensor_data.wind_speed, 4, 0);
-		delay_us(50);
-
-		static float tsr = 24.1f;
-		tsr += 0.1f;
-		TransmitCAN(MARIO_TIP_SPEED_RATIO, (uint8_t*)&tsr, 4, 0);
-		delay_us(50);
-
-		// TransmitCAN(MARIO_TORQUE, (uint8_t*)&sensor_data.torque, 4, 0);
-		// delay_us(50);
-
-		// TransmitCAN(MARIO_LOADCELL, (uint8_t*)&sensor_data.loadcell, 4, 0);
-		// delay_us(50);
-
-		// TODO: (Marc) Batt voltage + Batt current
-		// TODO: (Marc) Limit switch
-
-		TransmitCAN(MARIO_PITCH_MODE_FEEDBACK, (uint8_t*)&sensor_data.feedback_pitch_mode, 4, 0);
-		delay_us(50);
-
-		TransmitCAN(MARIO_MAST_MODE_FEEDBACK, (uint8_t*)&sensor_data.feedback_mast_mode, 4, 0);
-		delay_us(50);
-
-		TransmitCAN(MARIO_ROPS_FEEDBACK, (uint8_t*)&b_rops, 4, 0);
-		delay_us(50);
-
-		// Also send the turbine rpm value to the drive motor for ROPS detection
-		TransmitCAN(MARIO_MOTOR_ROTOR_RPM, (uint8_t*)&sensor_data.rotor_rpm, 4, 0);
-		delay_us(50);
-	}
-	*/
-
 
 	return STATE_DATA_LOGGING;
 }
@@ -2636,12 +2375,19 @@ static void MX_GPIO_Init(void)
 
   /*Configure GPIO pins : LIMIT1_Pin LIMIT2_Pin LORA_INT_Pin Rotor_RPM_Pin
                            Wheel_RPM_Pin */
-  GPIO_InitStruct.Pin = LIMIT1_Pin|LIMIT2_Pin|LORA_INT_Pin|Rotor_RPM_Pin
+  GPIO_InitStruct.Pin = LORA_INT_Pin|Rotor_RPM_Pin
                           |Wheel_RPM_Pin;
   // GPIO_InitStruct.Mode = GPIO_MODE_IT_RISING;
   GPIO_InitStruct.Mode = GPIO_MODE_IT_FALLING;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   HAL_GPIO_Init(GPIOE, &GPIO_InitStruct);
+
+
+  GPIO_InitStruct.Pin = LIMIT1_Pin|LIMIT2_Pin;
+    // GPIO_InitStruct.Mode = GPIO_MODE_IT_RISING;
+    GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
+    GPIO_InitStruct.Pull = GPIO_PULLDOWN;
+    HAL_GPIO_Init(GPIOE, &GPIO_InitStruct);
 
   /*Configure GPIO pin : Pitch_Data_Pin */
   GPIO_InitStruct.Pin = Pitch_Data_Pin;

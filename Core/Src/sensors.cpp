@@ -108,7 +108,7 @@ void ReadWeatherStation()
 			moy_direction_ctu++;
 			moy_wind_direction += wind_dir;
 
-			if (moy_direction_ctu <= 50) {
+			if (moy_direction_ctu <= 20) {
 				return;
 			}
 			moy_direction_ctu = 0;
