@@ -1048,45 +1048,10 @@ uint32_t DoStateROPS()
 
 uint32_t DoStateCan()
 {
-	static float temp = 0.10f;
-
-	// DEBUG DEBUG -- CAN Volant
-
 	if (1) // flag_can_tx_send Sent every 100ms
 	{
-		// temp += 0.10f;
-
 		//flag_can_tx_send = 0;
-		/*
-		static uint8_t uint_buffer_test[] = { 111, 112, 113, 114, 115, 116, 117, 118, 119, 210 };
-		static float float_buffer_test[] = { 9.10f, 9.20f, 9.30f, 9.40f, 9.50f, 9.60f, 9.70f, 9.80f, 9.90f };
-		float_buffer_test[0] += temp;
-		float_buffer_test[1] += temp;
-		float_buffer_test[2] += temp;
 
-		static int rising = 1;
-		if (rising)
-		{
-			float_buffer_test[3] += temp;
-			if (float_buffer_test[3] > 100.0f)
-				rising = false;
-		}
-		else //falling
-		{
-			float_buffer_test[3] -= temp;
-			if (float_buffer_test[3] < 10.0f)
-				rising = true;
-		}
-
-		float_buffer_test[4] += temp;
-		float_buffer_test[5] += temp;
-		float_buffer_test[6] += temp;
-		float_buffer_test[7] += temp;
-		float_buffer_test[8] += temp;
-
-		uint8_t uint_buffer_index = 0;
-		uint8_t float_buffer_index = 0;
-		*/
 		static float dec_test = 0;
 		//dec_test += 0.0001;
 		//if (dec_test >= 0.09) dec_test = 0.0001;
