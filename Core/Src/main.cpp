@@ -224,6 +224,8 @@ int main(void)
 	  ExecuteStateMachine();
   }
 
+
+
 }
 
 void ExecuteStateMachine()
@@ -592,6 +594,8 @@ uint32_t ReadPitchEncoder2()
 
 		pitch_data |= HAL_GPIO_ReadPin(Pitch_Data_GPIO_Port, Pitch_Data_Pin);
 	}
+
+
 
   	return pitch_data;
 }
@@ -2183,6 +2187,8 @@ static void MX_TIM3_Init(void)
   * @param None
   * @retval None
   */
+
+
 static void MX_TIM4_Init(void)
 {
 
