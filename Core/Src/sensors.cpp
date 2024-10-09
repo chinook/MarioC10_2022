@@ -51,32 +51,18 @@ float wind_direction_n180_0_p180(float wind_direction_0_360)
 #define END_OF_MOY_DIRECTION 50
 uint16_t moy_direction_ctu = 0;
 uint8_t new_moy_wind_direction = 0;
-float moy_wind_direction = 0;
 void ReadWeatherStation()
 {
 	if (!ws_receive_flag)
 		return;
 	ws_receive_flag = 0;
 
-
-
 	static char frame_begin[] = "$IIMWV";
-
-	// static int Led_Toggle=0;
-	// HAL_GPIO_WritePin(LD1_GPIO_Port,LD1_Pin,Led_Toggle);
-	// Led_Toggle=!Led_Toggle;
-
 
 	__disable_irq();
 
-	ws_receive_flag = 0;
 	index_buff = 0;
-
 	static uint8_t ws_message[128] = {0};
-
-	//size_t size_message = sizeof(ws_message);
-	//if (rx_buff[index_buff-1] == '\0')
-	//	size_message -= 1;
 	memcpy(ws_message, rx_buff, sizeof(ws_message));
 
 	__enable_irq();
@@ -105,17 +91,28 @@ void ReadWeatherStation()
 			// Wind direction correction from 0->360 to -180->180
 			wind_dir = wind_direction_n180_0_p180(wind_dir);
 
-			moy_direction_ctu++;
-			moy_wind_direction += wind_dir;
 
-			if (moy_direction_ctu <= 20) {
-				return;
+			//FILTRAGE ET CALCULS MOYENNE
+#define MOY_LENGTH 20
+static float wind_dir_log[MOY_LENGTH] = {0};
+
+			//log des dernières valeurs de direction du vent
+			//on décale la liste pour scrap la valeur la plus vielle et insérer la nouvelle valeur
+			if (moy_direction_ctu <= MOY_LENGTH) {
+				for (int i = 0; i < MOY_LENGTH - 1; i++) {
+					wind_dir_log[i+1] = wind_dir_log[i];
+				}
+				wind_dir_log[0] = wind_dir;
 			}
-			moy_direction_ctu = 0;
 
-			sensor_data.wind_direction_avg = moy_wind_direction / END_OF_MOY_DIRECTION;
+			//calcul de la moyenne de direction du vent
+			float moy_wind_direction = 0;
+			for(int i = 0; i < MOY_LENGTH; i++) {
+				moy_wind_direction += wind_dir_log[i];
+			}
 
-			moy_wind_direction = 0;
+			sensor_data.wind_direction_avg = moy_wind_direction / MOY_LENGTH;
+
 
 			//wind_dirs[wind_dir_last_idx++] = wind_dir;
 			wind_speeds[wind_speed_last_idx++] = wind_speed;
