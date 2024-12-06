@@ -65,7 +65,7 @@ float CalcPitchAnglePales(uint8_t bound_angle)
 		pitch_angle = BoundAngleSemiCircle(pitch_angle);
 
 	// float bounded_pitch_angle = BoundAngleSemiCircle(pitch_angle);
-
+	/*
 	if (startup_filter_pitch_angle == 1) {
 		if (pitch_angle != 0) {
 			startup_filter_pitch_angle = 0;
@@ -84,7 +84,7 @@ float CalcPitchAnglePales(uint8_t bound_angle)
 		pitch_angle_old = pitch_angle;
 		log_pitch_angle(pitch_angle);
 	}
-
+	*/
 	//pitch_angle = 300;
 	return pitch_angle;
 }

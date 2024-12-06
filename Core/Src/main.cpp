@@ -224,8 +224,6 @@ int main(void)
 	  ExecuteStateMachine();
   }
 
-
-
 }
 
 void ExecuteStateMachine()
@@ -594,8 +592,6 @@ uint32_t ReadPitchEncoder2()
 
 		pitch_data |= HAL_GPIO_ReadPin(Pitch_Data_GPIO_Port, Pitch_Data_Pin);
 	}
-
-
 
   	return pitch_data;
 }
@@ -970,7 +966,7 @@ uint32_t DoStateMotorControl()
 		if (sensor_data.feedback_mast_mode != MOTOR_MODE_MANUAL)
 		{
 			uint8_t mast_mode = MOTOR_MODE_MANUAL;
-			TransmitCAN(MARIO_MAST_MODE_CMD, &mast_mode, 4, 1);
+			TransmitCAN(MARIO_PITCH_MODE_CMD, &mast_mode, 4, 1);
 		}
 	}
 
@@ -1041,7 +1037,7 @@ uint32_t DoStateROPS()
 	// Exit ROPS state
 	uint32_t rops_cmd = ROPS_DISABLE;
 	TransmitCAN(MARIO_ROPS_CMD, (uint8_t*)&rops_cmd, 4, 0);
-	delay_us(100);
+	//delay_us(100);
 
 	// uint32_t pitch_mode_cmd = MOTOR_MODE_MANUAL;
 	// TransmitCAN(MARIO_PITCH_MODE_CMD, (uint8_t*)&pitch_mode_cmd, 4, 0);
@@ -1052,9 +1048,9 @@ uint32_t DoStateROPS()
 
 uint32_t DoStateCan()
 {
-	if (1) // flag_can_tx_send Sent every 100ms
+	if (flag_can_tx_send == 1) // flag_can_tx_send Sent every 100ms
 	{
-		//flag_can_tx_send = 0;
+		flag_can_tx_send = 0;
 
 		static float dec_test = 0;
 		//dec_test += 0.0001;
@@ -2154,8 +2150,6 @@ static void MX_TIM3_Init(void)
   * @param None
   * @retval None
   */
-
-
 static void MX_TIM4_Init(void)
 {
 
