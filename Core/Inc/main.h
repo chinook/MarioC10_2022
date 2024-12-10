@@ -127,7 +127,7 @@ extern uint32_t wheel_rpm_counter;
 extern uint32_t rotor_rpm_counter;
 // extern uint32_t rpm_counter_time;
 
-extern uint8_t timer_50ms_flag;
+extern uint8_t timer_1ms_flag;
 extern uint8_t timer_100ms_flag;
 extern uint8_t timer_250ms_flag;
 extern uint8_t timer_500ms_flag;
@@ -149,6 +149,7 @@ extern float pitch_auto_target;
 extern float pitch_rops_target;
 extern uint8_t pitch_done;
 extern uint8_t b_rops;
+extern uint8_t test_buttons_volant;
 
 void delay_us(uint16_t delay16_us);
 void delay_ms(uint16_t delay16_ms);

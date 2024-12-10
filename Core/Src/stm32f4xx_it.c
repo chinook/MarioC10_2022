@@ -299,7 +299,7 @@ void TIM2_IRQHandler(void)
   HAL_TIM_IRQHandler(&htim2);
   /* USER CODE BEGIN TIM2_IRQn 1 */
 
-  timer_50ms_flag = 1;
+  timer_1ms_flag = 1;
 
   /* USER CODE END TIM2_IRQn 1 */
 }

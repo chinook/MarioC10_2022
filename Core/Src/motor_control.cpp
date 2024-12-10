@@ -53,15 +53,15 @@ void DoMastControl()
 	if (sensor_data.wind_speed_avg >= WIND_SPEED_MAST_THRESHOLD) {
 		if (abs(sensor_data.wind_direction_avg) >= WIND_DIR_MAST_HYSTERESIS) {
 			if (sensor_data.wind_direction_avg > 0.0f) {
-				TransmitCAN(MARIO_MAST_MANUAL_CMD, (uint8_t*)&dir_left, 4, 1);
+				TransmitCAN(CAN_ID_CMD_MARIO_MAST_DIRECTION, (uint8_t*)&dir_left, 4, 1);
 			}
 			else {
-				TransmitCAN(MARIO_MAST_MANUAL_CMD, (uint8_t*)&dir_right, 4, 1);
+				TransmitCAN(CAN_ID_CMD_MARIO_MAST_DIRECTION, (uint8_t*)&dir_right, 4, 1);
 			}
 		}
 	}
 	else {
-		TransmitCAN(MARIO_MAST_MANUAL_CMD, (uint8_t*)&dir_stop, 4, 1);
+		TransmitCAN(CAN_ID_CMD_MARIO_MAST_DIRECTION, (uint8_t*)&dir_stop, 4, 1);
 	}
 
 }

@@ -13,8 +13,70 @@ CAN_TxHeaderTypeDef pTxHeader;
 CAN_RxHeaderTypeDef pRxHeader;
 uint32_t txMailbox;
 
+uint8_t button_press(uint32_t can_data) {
+	if ((can_data & 0xFF) == CAN_STATUS_PRESS) {
+		return 1;
+	} else if ((can_data & 0xFF) == CAN_STATUS_UNPRESS) {
+		return 0;
+	} else {
+		return -1;
+	}
+}
 
-void ProcessCanMessage();
+uint8_t old_status_button_hgg = 0;
+uint8_t status_button_hgg_toggle_tmp = 0;
+uint8_t status_button_hgg = 0;
+
+uint8_t old_status_button_hg = 0;
+uint8_t status_button_hg_toggle_tmp = 0;
+uint8_t status_button_hg = 0;
+
+uint8_t old_status_button_hd = 0;
+uint8_t status_button_hd_toggle_tmp = 0;
+uint8_t status_button_hd = 0;
+
+uint8_t old_status_button_hdd = 0;
+uint8_t status_button_hdd_toggle_tmp = 0;
+uint8_t status_button_hdd = 0;
+
+uint8_t old_status_button_mg = 0;
+uint8_t status_button_mg_toggle_tmp = 0;
+uint8_t status_button_mg = 0;
+
+uint8_t old_status_button_md = 0;
+uint8_t status_button_md_toggle_tmp = 0;
+uint8_t status_button_md = 0;
+
+uint8_t old_status_button_bgg = 0;
+uint8_t status_button_bgg_toggle_tmp = 0;
+uint8_t status_button_bgg = 0;
+
+uint8_t old_status_button_bg = 0;
+uint8_t status_button_bg_toggle_tmp = 0;
+uint8_t status_button_bg = 0;
+
+uint8_t old_status_button_bd = 0;
+uint8_t status_button_bd_toggle_tmp = 0;
+uint8_t status_button_bd = 0;
+
+uint8_t old_status_button_bdd = 0;
+uint8_t status_button_bdd_toggle_tmp = 0;
+uint8_t status_button_bdd = 0;
+
+void button_toggle(uint32_t can_data, uint8_t *status_button_x, uint8_t *old_status_button_x, uint8_t *status_button_x_toggle_tmp) {
+	if (*old_status_button_x != (can_data & 0xFF)) {
+		*status_button_x_toggle_tmp += 1;
+	}
+	if (*status_button_x_toggle_tmp >= 2) {
+		*status_button_x_toggle_tmp = 0;
+		if (*status_button_x == CAN_STATUS_PRESS) {
+			*status_button_x = CAN_STATUS_UNPRESS;
+		} else {
+			*status_button_x = CAN_STATUS_PRESS;
+		}
+	}
+	*old_status_button_x = (can_data & 0xFF);
+}
 
 
 void ProcessCanMessage()
@@ -41,15 +103,15 @@ void ProcessCanMessage()
 	// uint32_t upper_can_data = rxData[4] | (rxData[5] << 8) | (rxData[6] << 16) | (rxData[7] << 24);
 	uint32_t can_data = rxData[0] | (rxData[1] << 8) | (rxData[2] << 16) | (rxData[3] << 24);
 
-	if (pRxHeader.StdId == DRIVEMOTOR_PITCH_MODE_FEEDBACK)
+	if (pRxHeader.StdId == CAN_ID_STATE_DRIVEMOTOR_PITCH_MODE)
 	{
 		sensor_data.feedback_pitch_mode = (can_data & 0xFF);
 	}
-	else if (pRxHeader.StdId == DRIVEMOTOR_MAST_MODE_FEEDBACK)
+	else if (pRxHeader.StdId == CAN_ID_STATE_DRIVEMOTOR_MAST_MODE)
 	{
 		sensor_data.feedback_mast_mode = (can_data & 0xFF);
 	}
-	else if (pRxHeader.StdId == DRIVEMOTOR_PITCH_DONE)
+	else if (pRxHeader.StdId == CAN_ID_DRIVEMOTOR_PITCH_MOVE_DONE)
 	{
 		pitch_done = 1;
 	}
@@ -61,15 +123,7 @@ void ProcessCanMessage()
 	{
 		sensor_data.mast_fault_stall = (can_data & 0xFF);
 	}
-	else if (pRxHeader.StdId == BACKPLANE_TOTAL_VOLTAGE)
-	{
-
-	}
-	else if (pRxHeader.StdId == BACKPLANE_TOTAL_CURRENT)
-	{
-
-	}
-	else if (pRxHeader.StdId == VOLANT_MANUAL_ROPS_CMD)
+	else if (pRxHeader.StdId == CAN_ID_CMD_VOLANT_MANUAL_ROPS)
 	{
 		uint8_t rops_data = (can_data & 0xFF);
 		if (rops_data == ROPS_ENABLE)
@@ -83,7 +137,7 @@ void ProcessCanMessage()
 			b_rops = 1;
 		}
 	}
-	else if (pRxHeader.StdId == DRIVEMOTOR_ROPS_FEEDBACK)
+	else if (pRxHeader.StdId == CAN_ID_STATE_DRIVEMOTOR_ROPS)
 	{
 		uint8_t rops_data = (can_data & 0xFF);
 		sensor_data.feedback_pitch_rops = rops_data;
@@ -95,11 +149,63 @@ void ProcessCanMessage()
 		else
 			sensor_data.feedback_pitch_rops = rops_data;
 		*/
+	} else if (pRxHeader.StdId == CAN_ID_CMD_MARIO_PITCH_MODE) {
+
+		/*
+		if (old_cmd_mario_pitch_mode != can_data) {
+			cmd_mario_pitch_mode_toggle++;
+		}
+		if (cmd_mario_pitch_mode_toggle >= 2) {
+			cmd_mario_pitch_mode_toggle = 0;
+			if (test_buttons_volant == MOTOR_MODE_AUTOMATIC) {
+				test_buttons_volant = MOTOR_MODE_MANUAL;
+			} else {
+				test_buttons_volant = MOTOR_MODE_AUTOMATIC;
+			}
+		}
+		old_cmd_mario_pitch_mode = can_data;*/
 	}
-	else if (pRxHeader.StdId == BACKPLANE_DUMMY_TRAFFIC_MARIO)
-	{
-		// Dummy traffic
+	else if (pRxHeader.StdId == CAN_ID_STATUS_BUTTON_HGG) {
+		status_button_hgg = button_press(can_data);
+		//button_toggle(can_data, &status_button_hgg_toggle, old_status_button_hgg, status_button_hgg_toggle_tmp);
 	}
+	else if (pRxHeader.StdId == CAN_ID_STATUS_BUTTON_HG) {
+		//status_button_hg = button_press(can_data);
+		button_toggle(can_data, &status_button_hg, &old_status_button_hg, &status_button_hg_toggle_tmp);
+	}
+	else if (pRxHeader.StdId == CAN_ID_STATUS_BUTTON_HD) {
+		status_button_hd = button_press(can_data);
+		//button_toggle(can_data, &status_button_hgg_toggle, old_status_button_hgg, status_button_hgg_toggle_tmp);
+	}
+	else if (pRxHeader.StdId == CAN_ID_STATUS_BUTTON_HDD) {
+		status_button_hdd = button_press(can_data);
+		//button_toggle(can_data, &status_button_hgg_toggle, old_status_button_hgg, status_button_hgg_toggle_tmp);
+	}
+	else if (pRxHeader.StdId == CAN_ID_STATUS_BUTTON_MG) {
+		status_button_mg = button_press(can_data);
+		//button_toggle(can_data, &status_button_hgg_toggle, old_status_button_hgg, status_button_hgg_toggle_tmp);
+	}
+	else if (pRxHeader.StdId == CAN_ID_STATUS_BUTTON_MD) {
+		status_button_md = button_press(can_data);
+		//button_toggle(can_data, &status_button_hgg_toggle, old_status_button_hgg, status_button_hgg_toggle_tmp);
+	}
+	else if (pRxHeader.StdId == CAN_ID_STATUS_BUTTON_BGG) {
+		status_button_bgg = button_press(can_data);
+		//button_toggle(can_data, &status_button_hgg_toggle, old_status_button_hgg, status_button_hgg_toggle_tmp);
+	}
+	else if (pRxHeader.StdId == CAN_ID_STATUS_BUTTON_BG) {
+		status_button_bg = button_press(can_data);
+		//button_toggle(can_data, &status_button_hgg_toggle, old_status_button_hgg, status_button_hgg_toggle_tmp);
+	}
+	else if (pRxHeader.StdId == CAN_ID_STATUS_BUTTON_BD) {
+		status_button_bd = button_press(can_data);
+		//button_toggle(can_data, &status_button_hgg_toggle, old_status_button_hgg, status_button_hgg_toggle_tmp);
+	}
+	else if (pRxHeader.StdId == CAN_ID_STATUS_BUTTON_BDD) {
+		status_button_bdd = button_press(can_data);
+		//button_toggle(can_data, &status_button_hgg_toggle, old_status_button_hgg, status_button_hgg_toggle_tmp);
+	}
+
 	else
 	{
 		// Unknown CAN ID
@@ -283,7 +389,7 @@ void MX_CAN1_Init(void)
 
   	// Which bits to compare for filter
   	sf_fifo0.FilterMaskIdHigh = 0x0000;
-  	sf_fifo0.FilterMaskIdLow = (MARIO_FIFO0_RX_FILTER_MASK_LOW & 0x07FF);
+  	sf_fifo0.FilterMaskIdLow = (FIFO0_RX_FILTER_MASK_LOW & 0x07FF);
 
   	sf_fifo0.FilterFIFOAssignment = CAN_FILTER_FIFO0;
   	sf_fifo0.FilterBank = 2; // Which filter to use from the assigned ones
@@ -299,12 +405,12 @@ void MX_CAN1_Init(void)
 
   	CAN_FilterTypeDef sf_fifo1;
   	// All common bits go into the ID register
-  	sf_fifo1.FilterIdHigh = MARIO_FIFO1_RX_FILTER_ID_HIGH;
-  	sf_fifo1.FilterIdLow = MARIO_FIFO1_RX_FILTER_ID_LOW;
+  	sf_fifo1.FilterIdHigh = FIFO1_RX_FILTER_ID_HIGH;
+  	sf_fifo1.FilterIdLow = FIFO1_RX_FILTER_ID_LOW;
 
   	// Which bits to compare for filter
   	sf_fifo1.FilterMaskIdHigh = 0x0000;
-  	sf_fifo1.FilterMaskIdLow = (MARIO_FIFO1_RX_FILTER_MASK_LOW & 0x07FF);
+  	sf_fifo1.FilterMaskIdLow = (FIFO1_RX_FILTER_MASK_LOW & 0x07FF);
 
   	sf_fifo1.FilterFIFOAssignment = CAN_FILTER_FIFO1;
   	sf_fifo1.FilterBank = 3; // Which filter to use from the assigned ones
