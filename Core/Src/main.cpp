@@ -238,8 +238,19 @@ void ExecuteStateMachine()
 		timer_1ms_flag = 0;
 		timer_50ms_counter++;
 
+
+
+
+		flag_acq_interval = 1;
 		flag_can_tx_send = 1;
 	}
+	if (timer_50ms_counter >= 50) {
+		timer_50ms_counter = 0;
+		timer_250ms_counter++;
+
+
+	}
+
 
 	if (timer_250ms_counter == 5)
 	{
@@ -252,7 +263,7 @@ void ExecuteStateMachine()
 	{
 		timer_100ms_flag = 0;
 
-		flag_acq_interval = 1;
+		//flag_acq_interval = 1;
 		flag_rotor_rpm_process = 1;
 		flag_weather_station = 1;
 	}
@@ -260,8 +271,9 @@ void ExecuteStateMachine()
 	{
 		timer_500ms_flag = 0;
 
-		//flag_uart_tx_send = 1;
 		flag_wheel_rpm_process = 1;
+		//flag_uart_tx_send = 1;
+
 		flag_alive_led = 1;
 		flag_uart_tx_send = 1;
 	}
@@ -783,7 +795,7 @@ uint32_t DoStateAcquisition()
 		flag_acq_interval = 0;
 
 		// Read pitch and mast encoders
-	sensor_data.pitch_encoder = ReadPitchEncoder();
+		sensor_data.pitch_encoder = ReadPitchEncoder();
 		sensor_data.pitch_angle = CalcPitchAnglePales(false);
 		// uint32_t pitch_val2 = ReadPitchEncoder2();
 

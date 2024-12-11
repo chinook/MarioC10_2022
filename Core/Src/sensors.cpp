@@ -422,11 +422,11 @@ uint32_t ReadMastEncoder()
 		mast_data <<= 1;
 
 		HAL_GPIO_WritePin(Mast_Clock_GPIO_Port, Mast_Clock_Pin, GPIO_PIN_RESET);
-		for (int i = 0; i < 20; ++i) {} // Wait 10 us
+		//for (int i = 0; i < 20; ++i) {} // Wait 10 us
 		// delay_us(10);
 
 		HAL_GPIO_WritePin(Mast_Clock_GPIO_Port, Mast_Clock_Pin, GPIO_PIN_SET);
-		for (int i = 0; i < 20; ++i) {} // Wait 10 us
+		//for (int i = 0; i < 20; ++i) {} // Wait 10 us
 		// delay_us(10);
 
 		mast_data |= HAL_GPIO_ReadPin(Mast_Data_GPIO_Port, Mast_Data_Pin);
