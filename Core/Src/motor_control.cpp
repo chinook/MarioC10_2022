@@ -12,7 +12,7 @@
 float func_moy_wind_direction();
 
 #define PITCH_UPDATE_DEG_THRESHOLD 0.25f
-
+#define MIN_ERROR_ANGLE 0.1f
 
 void DoPitchControl()
 {
@@ -24,13 +24,10 @@ void DoPitchControl()
 		{
 			float delta_angle_pales = CalcPitchAnglePales(TRUE) - pitch_auto_target;
 
-	#define MIN_ERROR_ANGLE 0.1f
-			if (abs(delta_angle_pales) > 0.1f)
+			if (abs(delta_angle_pales) > MIN_ERROR_ANGLE)
 			{
-				if (pitch_done)
-				{
-					SendPitchAngleCmd(pitch_auto_target);
-				}
+				SendPitchAngleCmd(pitch_auto_target);
+
 
 			}
 		}

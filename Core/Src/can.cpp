@@ -181,16 +181,16 @@ void ProcessCanMessage()
 		//button_toggle(status_button_raw, &status_button_hgg, &old_status_button_hgg, &status_button_hgg_toggle_tmp);
 
 		status_button_raw = extract_button_status_only_one_can_id(can_data, CAN_BIT_POSITION_BUTTON_HG);
-		//status_button_hg = button_press(status_button_raw);
-		button_toggle(status_button_raw, &status_button_hg, &old_status_button_hg, &status_button_hg_toggle_tmp);
+		status_button_hg = button_press(status_button_raw);
+		//button_toggle(status_button_raw, &status_button_hg, &old_status_button_hg, &status_button_hg_toggle_tmp);
 
 		status_button_raw = extract_button_status_only_one_can_id(can_data, CAN_BIT_POSITION_BUTTON_HD);
-		//status_button_hd = button_press(status_button_raw);
-		button_toggle(status_button_raw, &status_button_hd, &old_status_button_hd, &status_button_hd_toggle_tmp);
+		status_button_hd = button_press(status_button_raw);
+		//button_toggle(status_button_raw, &status_button_hd, &old_status_button_hd, &status_button_hd_toggle_tmp);
 
 		status_button_raw = extract_button_status_only_one_can_id(can_data, CAN_BIT_POSITION_BUTTON_HDD);
-		//status_button_hdd = button_press(status_button_raw);
-		button_toggle(status_button_raw, &status_button_hdd, &old_status_button_hdd, &status_button_hdd_toggle_tmp);
+		status_button_hdd = button_press(status_button_raw);
+		//button_toggle(status_button_raw, &status_button_hdd, &old_status_button_hdd, &status_button_hdd_toggle_tmp);
 
 		status_button_raw = extract_button_status_only_one_can_id(can_data, CAN_BIT_POSITION_BUTTON_MG);
 		//status_button_mg = button_press(status_button_raw);
@@ -275,7 +275,7 @@ HAL_StatusTypeDef TransmitCAN(uint32_t id, uint8_t* buf, uint8_t size, uint8_t w
 		}
 		// Otherwise wait until free mailbox
 		// for (int j = 0; j < 500; ++j) {}
-		delay_us(2);
+		//delay_us(2);
 	}
 	if (!found_mailbox)
 	{
@@ -294,7 +294,7 @@ HAL_StatusTypeDef TransmitCAN(uint32_t id, uint8_t* buf, uint8_t size, uint8_t w
 				break;
 			// Otherwise wait until 3 free mailbox
 			// for (int j = 0; j < 500; ++j) {}
-			delay_us(50);
+			//delay_us(50);
 		}
 	}
 

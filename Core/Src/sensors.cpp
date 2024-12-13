@@ -6,7 +6,7 @@
 #include <string.h>
 #include <stdlib.h>
 
-#define PITCH_ENCODER_BITS 12
+
 //define PITCH_ENCODER_BITS 17
 //#define PITCH_ENCODER_BITS 24
 
@@ -283,134 +283,36 @@ void ReadRotorRPM() // 100 ms interval
 		sensor_data.rotor_rpm = rotor_rpm;
 }
 
+
+#define PITCH_ENCODER_BITS 12
 uint32_t ReadPitchEncoder()
 {
-	/*
-#define DUAL_TRANSMISSION 1
-	//HAL_GPIO_WritePin(Pitch_Clock_GPIO_Port, Pitch_Clock_Pin, GPIO_PIN_SET);
+	HAL_GPIO_WritePin(Pitch_Clock_GPIO_Port, Pitch_Clock_Pin, GPIO_PIN_RESET);
+	delay_us(1);
+	HAL_GPIO_WritePin(Pitch_Clock_GPIO_Port, Pitch_Clock_Pin, GPIO_PIN_SET);
+	delay_us(1);
+
 	// SSI works from 100kHz to about 2MHz
 	uint32_t pitch_data = 0;
-	for(int i = 0; i < PITCH_ENCODER_BITS; ++i)
+	for(int i = 0; i < PITCH_ENCODER_BITS; i++)
 	{
-		pitch_data <<= 1;
 
 		HAL_GPIO_WritePin(Pitch_Clock_GPIO_Port, Pitch_Clock_Pin, GPIO_PIN_RESET);
-		//for (int i = 0; i < 200; ++i) { ; } // Wait 10 us
-		//delay_us(2);
+		delay_us(1);
 
-		delay_us(10);
+		pitch_data <<= 1;
+
+		if (HAL_GPIO_ReadPin(Pitch_Data_GPIO_Port, Pitch_Data_Pin)) {
+			pitch_data |= 1;
+		}
 
 
 		HAL_GPIO_WritePin(Pitch_Clock_GPIO_Port, Pitch_Clock_Pin, GPIO_PIN_SET);
-		//HAL_GPIO_TogglePin(Pitch_Clock_GPIO_Port, Pitch_Clock_Pin);
-		//for (int i = 0; i < 200; ++i) { ; } // Wait 10 us
-		delay_us(5);
-
-		pitch_data |= HAL_GPIO_ReadPin(Pitch_Data_GPIO_Port, Pitch_Data_Pin);
-		delay_us(0);
+		delay_us(1);
 
 	}
 
-
-
-	uint32_t pitch_data2 = pitch_data;
-	if (DUAL_TRANSMISSION)
-	{
-		pitch_data2 = 0;
-		for(int i = 0; i < PITCH_ENCODER_BITS+2; ++i)
-		{
-			pitch_data2 <<= 1;
-
-
-			HAL_GPIO_WritePin(Pitch_Clock_GPIO_Port, Pitch_Clock_Pin, GPIO_PIN_RESET);
-			//for (int i = 0; i < 200; ++i) { ; } // Wait 10 us
-			//delay_us(2);
-
-			delay_us(10);
-
-
-			HAL_GPIO_WritePin(Pitch_Clock_GPIO_Port, Pitch_Clock_Pin, GPIO_PIN_SET);
-			//HAL_GPIO_TogglePin(Pitch_Clock_GPIO_Port, Pitch_Clock_Pin);
-			//for (int i = 0; i < 200; ++i) { ; } // Wait 10 us
-			delay_us(5);
-
-			pitch_data2 |= HAL_GPIO_ReadPin(Pitch_Data_GPIO_Port, Pitch_Data_Pin);
-			delay_us(0);
-		}
-	}
-	*/
-
-// Working Tuesday August 22
-
-#define DUAL_TRANSMISSION 0
-	//HAL_GPIO_WritePin(Pitch_Clock_GPIO_Port, Pitch_Clock_Pin, GPIO_PIN_SET);
-	// SSI works from 100kHz to about 2MHz
-	uint32_t pitch_data = 0;
-	for(int i = 0; i < PITCH_ENCODER_BITS; ++i)
-	{
-		pitch_data <<= 1;
-
-		HAL_GPIO_WritePin(Pitch_Clock_GPIO_Port, Pitch_Clock_Pin, GPIO_PIN_RESET);
-		//for (int i = 0; i < 200; ++i) { ; } // Wait 10 us
-		//delay_us(2);
-
-		delay_us(10);
-
-
-		HAL_GPIO_WritePin(Pitch_Clock_GPIO_Port, Pitch_Clock_Pin, GPIO_PIN_SET);
-		//HAL_GPIO_TogglePin(Pitch_Clock_GPIO_Port, Pitch_Clock_Pin);
-		//for (int i = 0; i < 200; ++i) { ; } // Wait 10 us
-		delay_us(4);
-
-		pitch_data |= HAL_GPIO_ReadPin(Pitch_Data_GPIO_Port, Pitch_Data_Pin);
-		//delay_us(10);
-
-	}
-
-
-
-	uint32_t pitch_data2 = pitch_data;
-	if (DUAL_TRANSMISSION)
-	{
-		pitch_data2 = 0;
-		for(int i = 0; i < PITCH_ENCODER_BITS+2; ++i)
-		{
-			pitch_data2 <<= 1;
-
-
-			HAL_GPIO_WritePin(Pitch_Clock_GPIO_Port, Pitch_Clock_Pin, GPIO_PIN_RESET);
-			//for (int i = 0; i < 200; ++i) { ; } // Wait 10 us
-			//delay_us(2);
-
-			delay_us(8);
-
-
-			HAL_GPIO_WritePin(Pitch_Clock_GPIO_Port, Pitch_Clock_Pin, GPIO_PIN_SET);
-			//HAL_GPIO_TogglePin(Pitch_Clock_GPIO_Port, Pitch_Clock_Pin);
-			//for (int i = 0; i < 200; ++i) { ; } // Wait 10 us
-			delay_us(4);
-
-			pitch_data2 |= HAL_GPIO_ReadPin(Pitch_Data_GPIO_Port, Pitch_Data_Pin);
-			//delay_us(10);
-		}
-	}
-
-
-	if (pitch_data == pitch_data2 ||
-		abs((int)pitch_data2 - (int)pitch_data) < 10)
-	{
-		if (pitch_data == 0)
-			return 0xFFFFFFFF;
-		// return (pitch_data*1024);
-		return pitch_data;
-		// return pitch_data;
-	}
-	else
-	{
-		return 0xFFFFFFFF;
-	}
-	// pitch_data = 1200;
-  	// return (pitch_data*1024);
+	return pitch_data;
 }
 
 uint32_t ReadMastEncoder()

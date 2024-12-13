@@ -139,11 +139,12 @@ float CalcTSR()
 
 float CalcPitchAuto()
 {
-#define ALGO_C11 1
+//polynome vérifié en compé C12 calculs bon aout 2024
+#define ALGO_C12 1
 
 	float tsr = CalcTSR();
 
-	if (ALGO_C11)
+	if (ALGO_C12)
 	{
 		float pitch_target = 0;
 		if (tsr <= 2) {
@@ -174,7 +175,7 @@ float CalcPitchAuto()
 							  0.000967116 * tsr10 -
 							  0.000015428 * tsr11;
 		}
-		pitch_target = -pitch_target;
+		pitch_target = -pitch_target; // - ???
 		/*
 		if (pitch_target >= -4) {
 			pitch_target = -4;
@@ -244,39 +245,7 @@ void SendPitchTargetCmd(uint32_t target_pitch_abs)
 	}
 }
 
-void SendPitchROPSCmd()
-{
-	// Negative because we want pitch to ROPS (but we compute the other direction)
-	float delta_pitch = -CalcDeltaPitch(PITCH_ABSOLUTE_ROPS);
 
-	static const float pitch_to_angle = 360.0f / MAX_PITCH_VALUE;
-	float delta_angle_encoder = delta_pitch * pitch_to_angle;
-
-	static const float angle_mov_per_step_inv = 293.89f / 1.8f;
-	int nb_steps = (int)(delta_angle_encoder * angle_mov_per_step_inv);
-	// static const float angle_mov_per_step_inv = 293.89f / 1.8f;
-	// int nb_steps = (int)(delta_angle_encoder * angle_mov_per_step_inv);
-
-	if(abs(nb_steps) > MAX_STEPS_PER_CMD)
-	{
-		if(nb_steps < 0)
-			nb_steps = -MAX_STEPS_PER_CMD;
-		else
-			nb_steps = MAX_STEPS_PER_CMD;
-	}
-
-	if(pitch_done)
-	{
-		// uint32_t nb_steps_cmd = (int)
-		if (sensor_data.feedback_pitch_rops != 1)
-		{
-			uint32_t rops_cmd = ROPS_ENABLE;
-			SendROPSCmdCan(rops_cmd);
-		}
-
-		SendPitchCmdCan(nb_steps);
-	}
-}
 
 void SendPitchAngleCmd(float target_pitch)
 {
@@ -324,11 +293,45 @@ void SendPitchAngleCmd(float target_pitch)
 	// Only send cmd if stepper has finished last command
 	// Stepper drive will notice us when done with the pitch_done CAN message.
 	//if(true || pitch_done)
+	//if(pitch_done)
+	//{
+		// if (sensor_data.feedback_pitch_rops != 1)
+		//{
+			//uint32_t rops_cmd = ROPS_DISABLE;
+			//SendROPSCmdCan(rops_cmd);
+		//}
+
+	SendPitchCmdCan(nb_steps);
+	//}
+}
+
+void SendPitchROPSCmd()
+{
+	// Negative because we want pitch to ROPS (but we compute the other direction)
+	float delta_pitch = -CalcDeltaPitch(PITCH_ABSOLUTE_ROPS);
+
+	static const float pitch_to_angle = 360.0f / MAX_PITCH_VALUE;
+	float delta_angle_encoder = delta_pitch * pitch_to_angle;
+
+	static const float angle_mov_per_step_inv = 293.89f / 1.8f;
+	int nb_steps = (int)(delta_angle_encoder * angle_mov_per_step_inv);
+	// static const float angle_mov_per_step_inv = 293.89f / 1.8f;
+	// int nb_steps = (int)(delta_angle_encoder * angle_mov_per_step_inv);
+
+	if(abs(nb_steps) > MAX_STEPS_PER_CMD)
+	{
+		if(nb_steps < 0)
+			nb_steps = -MAX_STEPS_PER_CMD;
+		else
+			nb_steps = MAX_STEPS_PER_CMD;
+	}
+
 	if(pitch_done)
 	{
-		// if (sensor_data.feedback_pitch_rops != 1)
+		// uint32_t nb_steps_cmd = (int)
+		if (sensor_data.feedback_pitch_rops != 1)
 		{
-			uint32_t rops_cmd = ROPS_DISABLE;
+			uint32_t rops_cmd = ROPS_ENABLE;
 			SendROPSCmdCan(rops_cmd);
 		}
 
