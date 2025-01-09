@@ -212,7 +212,7 @@ void EXTI0_IRQHandler(void)
   /* USER CODE BEGIN EXTI0_IRQn 0 */
 
   /* USER CODE END EXTI0_IRQn 0 */
-  HAL_GPIO_EXTI_IRQHandler(TorqueADC_Pin);
+  HAL_GPIO_EXTI_IRQHandler(Rotor_RPM_Pin);
   /* USER CODE BEGIN EXTI0_IRQn 1 */
 
   /* USER CODE END EXTI0_IRQn 1 */
@@ -226,7 +226,7 @@ void EXTI1_IRQHandler(void)
   /* USER CODE BEGIN EXTI1_IRQn 0 */
 
   /* USER CODE END EXTI1_IRQn 0 */
-  HAL_GPIO_EXTI_IRQHandler(LoadcellADC_Pin);
+  HAL_GPIO_EXTI_IRQHandler(Wheel_RPM_Pin);
   /* USER CODE BEGIN EXTI1_IRQn 1 */
 
   /* USER CODE END EXTI1_IRQn 1 */
@@ -350,7 +350,7 @@ void EXTI15_10_IRQHandler(void)
 
   /* USER CODE END EXTI15_10_IRQn 0 */
   HAL_GPIO_EXTI_IRQHandler(LORA_INT_Pin);
-  HAL_GPIO_EXTI_IRQHandler(LORA_CS_Pin);
+  HAL_GPIO_EXTI_IRQHandler(PB2_Pin);
   HAL_GPIO_EXTI_IRQHandler(PB1_Pin);
   /* USER CODE BEGIN EXTI15_10_IRQn 1 */
 

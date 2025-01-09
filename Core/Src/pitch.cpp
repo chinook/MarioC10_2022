@@ -10,7 +10,17 @@
 
 
 #define KNOTS_TO_MS 0.514444f
-#define ENCODER_TO_PALES_RATIO (3.0f / 2.0f)
+
+//pour 12 bits
+
+
+
+//pour 12 bits, c'est des valeurs de 0 à 4095
+//doit être recalibrer À CHAQUE FOIS que le spider ou l'encodeur est démonté, sinon le 0 n'est plus bon
+#define PITCH_ABSOLUTE_ZERO 2629
+#define ENCODER_TO_PALES_RATIO (360.0f / 245.0f) // À VÉRIFIER pas mal bon environ 0,65 tour d'encodeur pour 1 tour de pale
+#define PALE_RADIUS 0.874f
+
 
 static float log_pitch[200] = {0};
 static bool startup_filter_pitch_angle = 1;
@@ -33,59 +43,58 @@ float BoundAngleSemiCircle(float angle)
 		return angle;
 }
 
+uint8_t warning_pitch_angle_close_to_up = 0;
+uint8_t warning_pitch_angle_close_to_down = 0;
 
-float CalcDeltaPitch(uint32_t reference_point)
+float CalcPitchAngle_raw_to_deg()
 {
-	int32_t delta_pitch = (sensor_data.pitch_encoder - reference_point);
-	uint32_t abs_delta_pitch = abs(delta_pitch);
+	//explications de la conversion des valeurs brutes de l'encodeur absolue vers un angle en degrée
+	//0 360 milieu 180 -> -180 180 milieu 0
+	//1 tour d'encodeur (360) égale 270 degrée pour un tour de pale : rotor C12 avant PFE H2025
+	//45 315 milieu 180 -> -135 135 milieu 0
+	//non linéaire avec au milieu pas de différence mais aux bornes 45 degrées de différence
+	//
+	//il faut placer l'angle des pales à 0, puis déterminer enregister cette valeur dans le code (changer le define PITCH_ABSOLUTE_ZERO)
+	//si le milieu est 0, alors il est possible de multiplier l'angle par 0.75 (270 / 360) pour obtenir un décalage de 45 degrées au bornes,
+																		//soit 180*0.75=135, on a bien un décalage de 45 degrées
+	//en partant d'une valeur brute d'encodeur de 12bits, soit des valeurs de 0 à 4096,
+	//il faut donc ne JAMAIS dépasser le tour complet, au risque de perdre le 90 degrée de décalage (ou plus selon le nombre de tour) si le microcontrolleur redémarre.
+	//ARRET des moteurs si proche de +/-2048 par rapport au define PITCH_ABSOLUTE_ZERO
+	//
 
-	// Adjust the pitch value if greater than half distance around full circle
-	if (abs_delta_pitch >= HALF_MAX_VALUE)
-	{
-		if (delta_pitch < 0)
-			delta_pitch = (MAX_PITCH_VALUE - abs_delta_pitch);
-		else
-			delta_pitch = -(MAX_PITCH_VALUE - abs_delta_pitch);
-	}
-
-	return delta_pitch;
-}
-
-float CalcPitchAnglePales(uint8_t bound_angle)
-{
-	float delta_pitch = CalcDeltaPitch(PITCH_ABSOLUTE_ZERO);
-
-	static const float PITCH_TO_ANGLE_RATIO = ENCODER_TO_PALES_RATIO * (360.0f / (float)MAX_PITCH_VALUE);
-	float pitch_angle = (float)delta_pitch * PITCH_TO_ANGLE_RATIO;
-
-	pitch_angle += 27.5f - 180.0f;
-
-	// Bound angle between -180 and 180 degrees
-	if (bound_angle)
-		pitch_angle = BoundAngleSemiCircle(pitch_angle);
-
-	// float bounded_pitch_angle = BoundAngleSemiCircle(pitch_angle);
-	/*
-	if (startup_filter_pitch_angle == 1) {
-		if (pitch_angle != 0) {
-			startup_filter_pitch_angle = 0;
-			for (int i = 0; i>10; i++) {
-				log_pitch[i] = pitch_angle;
-			}
+	float pitch_encoder_centered = 0;
+	if (PITCH_ABSOLUTE_ZERO <= HALF_MAX_PITCH_VALUE_RAW) { //0 à 2047
+		if (sensor_data.pitch_encoder < (MAX_PITCH_VALUE_RAW - (HALF_MAX_PITCH_VALUE_RAW - PITCH_ABSOLUTE_ZERO))) {
+			pitch_encoder_centered = (float) ((float) sensor_data.pitch_encoder + (float) HALF_MAX_PITCH_VALUE_RAW - (float) PITCH_ABSOLUTE_ZERO);
+		} else {
+			pitch_encoder_centered = (float) ((float) sensor_data.pitch_encoder + (float) HALF_MAX_PITCH_VALUE_RAW - (float) PITCH_ABSOLUTE_ZERO - (float) MAX_PITCH_VALUE_RAW);
+		}
+	} else if (PITCH_ABSOLUTE_ZERO > HALF_MAX_PITCH_VALUE_RAW) { //2048 à 4097
+		if (sensor_data.pitch_encoder > (float) (PITCH_ABSOLUTE_ZERO - HALF_MAX_PITCH_VALUE_RAW)) {
+			pitch_encoder_centered = (float) ((float) sensor_data.pitch_encoder - (float) ((float) PITCH_ABSOLUTE_ZERO - (float) HALF_MAX_PITCH_VALUE_RAW));
+		} else {
+			pitch_encoder_centered = (float) ((float) sensor_data.pitch_encoder + (float) MAX_PITCH_VALUE_RAW - (float) ((float) PITCH_ABSOLUTE_ZERO - (float) HALF_MAX_PITCH_VALUE_RAW));
 		}
 	}
 
-	static float pitch_angle_old;
-	if (filter_pitch_angle(pitch_angle) != 1) {
-		pitch_angle = pitch_angle_old;
+	pitch_encoder_centered -= (float) HALF_MAX_PITCH_VALUE_RAW;
+
+	float pitch_angle = (float) pitch_encoder_centered * (float) ABSOLUTE_ENCODER_RESOLUTION_ANGLE_12BITS; //si 2047 = 180
+	pitch_angle = pitch_angle * (float) ENCODER_TO_PALES_RATIO;
+
+	//warning bornes
+	if (pitch_encoder_centered > MAX_UP_PITCH_VALUE_DEGREE) {
+		warning_pitch_angle_close_to_up = 1;
+	} else {
+		warning_pitch_angle_close_to_up = 0;
 	}
 
-	if (pitch_angle != pitch_angle_old) {
-		pitch_angle_old = pitch_angle;
-		log_pitch_angle(pitch_angle);
+	if (pitch_encoder_centered < MAX_DOWN_PITCH_VALUE_DEGREE) {
+		warning_pitch_angle_close_to_down = 1;
+	} else {
+		warning_pitch_angle_close_to_down = 0;
 	}
-	*/
-	//pitch_angle = 300;
+
 	return pitch_angle;
 }
 
@@ -129,7 +138,7 @@ float CalcTSR()
 	if (abs(wind_speed_ms) < MIN_EPSILON)
 		return 0.0f;
 
-#define PALE_RADIUS 0.874f
+
 	float tsr = (PALE_RADIUS * rotor_speed_omega) / wind_speed_ms;
 
 	if (tsr < MIN_EPSILON)
@@ -187,191 +196,3 @@ float CalcPitchAuto()
 		return pitch_target;
 	}
 }
-
-void VerifyPitchTargetCmd(uint32_t target_pitch_abs)
-{
-#define TARGET_MAX_ERROR 10000
-	if (abs(sensor_data.pitch_encoder - PITCH_ABSOLUTE_ZERO) > TARGET_MAX_ERROR)
-	{
-		SendPitchTargetCmd(PITCH_ABSOLUTE_ZERO);
-	}
-}
-
-
-void VerifyRopsCmd()
-{
-#define MAX_ERROR_ROPS 10000
-	if (abs(sensor_data.pitch_encoder - PITCH_ABSOLUTE_ROPS) > MAX_ERROR_ROPS)
-	{
-		SendPitchROPSCmd();
-	}
-}
-
-void SendPitchTargetCmd(uint32_t target_pitch_abs)
-{
-	// Negative because we want pitch to ROPS (but we compute the other direction)
-	float delta_pitch = -CalcDeltaPitch(target_pitch_abs);
-
-	static const float pitch_to_angle = 360.0f / MAX_PITCH_VALUE;
-	float delta_angle_encoder = delta_pitch * pitch_to_angle;
-
-	static const float angle_mov_per_step_inv = 293.89f / 1.8f;
-	int nb_steps = (int)(delta_angle_encoder * angle_mov_per_step_inv);
-	// static const float angle_mov_per_step_inv = 293.89f / 1.8f;
-	// int nb_steps = (int)(delta_angle_encoder * angle_mov_per_step_inv);
-
-	if(abs(nb_steps) > MAX_STEPS_PER_CMD)
-	{
-		if(nb_steps < 0)
-			nb_steps = -MAX_STEPS_PER_CMD;
-		else
-			nb_steps = MAX_STEPS_PER_CMD;
-	}
-
-	if(pitch_done)
-	{
-
-		// uint32_t nb_steps_cmd = (int)
-
-		// if (sensor_data.feedback_pitch_rops != 1)
-		{
-			uint32_t rops_cmd = ROPS_DISABLE;
-			SendROPSCmdCan(rops_cmd);
-		}
-
-
-
-		SendPitchCmdCan(nb_steps);
-	}
-}
-
-
-
-void SendPitchAngleCmd(float target_pitch)
-{
-	// Bounds checking
-	// if (target_angle_pales < 180.0f || target_angle_pales > 180.0f)
-	//	return;
-	float target_angle_pales = BoundAngleSemiCircle(target_pitch);
-
-	// Calculate current pitch angle from ABSOLUTE ZERO
-	// float current_pitch_angle_pales = (3.0f / 2.0f) * pitch_to_angle(current_pitch);
-	float angle_pales = CalcPitchAnglePales(FALSE);
-	// angle_pales = BoundAngleSemiCircle(angle_pales);
-
-	// Calculate the delta pitch angle for the stepper motor
-	float delta_angle_pales = target_angle_pales - angle_pales;
-	delta_angle_pales = BoundAngleSemiCircle(delta_angle_pales);
-
-	static const float angle_pales_to_encoder_angle = (2.0f / 3.0f);
-	float delta_angle_encoder = angle_pales_to_encoder_angle * delta_angle_pales;
-
-	// Convert the target angle to stepper steps
-	// static const float angle_mov_per_step = 1.8f / 293.89f;
-	// int nb_steps = (int)(delta_pitch_angle_encodeur / angle_mov_per_step);
-	static const float angle_mov_per_step_inv = 293.89f / 1.8f;
-	int nb_steps = (int)(delta_angle_encoder * angle_mov_per_step_inv);
-
-	// Set a maximum to the number of steps so that we don't overshoot too much
-	// Plus, its safer in case of angle error
-	//if(abs(nb_steps) > 300) nb_steps = 300;
-	//if (nb_steps < 0)
-	//	nb_steps *= -1;
-
-
-	if(abs(nb_steps) > MAX_STEPS_PER_CMD)
-	{
-		if(nb_steps < 0)
-			nb_steps = -MAX_STEPS_PER_CMD;
-		else
-			nb_steps = MAX_STEPS_PER_CMD;
-	}
-	// nb_steps *= -1;
-	// TODO: Add checks and validation of steps
-
-	// Send the command to the stepper drive
-	// Only send cmd if stepper has finished last command
-	// Stepper drive will notice us when done with the pitch_done CAN message.
-	//if(true || pitch_done)
-	//if(pitch_done)
-	//{
-		// if (sensor_data.feedback_pitch_rops != 1)
-		//{
-			//uint32_t rops_cmd = ROPS_DISABLE;
-			//SendROPSCmdCan(rops_cmd);
-		//}
-
-	SendPitchCmdCan(nb_steps);
-	//}
-}
-
-void SendPitchROPSCmd()
-{
-	// Negative because we want pitch to ROPS (but we compute the other direction)
-	float delta_pitch = -CalcDeltaPitch(PITCH_ABSOLUTE_ROPS);
-
-	static const float pitch_to_angle = 360.0f / MAX_PITCH_VALUE;
-	float delta_angle_encoder = delta_pitch * pitch_to_angle;
-
-	static const float angle_mov_per_step_inv = 293.89f / 1.8f;
-	int nb_steps = (int)(delta_angle_encoder * angle_mov_per_step_inv);
-	// static const float angle_mov_per_step_inv = 293.89f / 1.8f;
-	// int nb_steps = (int)(delta_angle_encoder * angle_mov_per_step_inv);
-
-	if(abs(nb_steps) > MAX_STEPS_PER_CMD)
-	{
-		if(nb_steps < 0)
-			nb_steps = -MAX_STEPS_PER_CMD;
-		else
-			nb_steps = MAX_STEPS_PER_CMD;
-	}
-
-	if(pitch_done)
-	{
-		// uint32_t nb_steps_cmd = (int)
-		if (sensor_data.feedback_pitch_rops != 1)
-		{
-			uint32_t rops_cmd = ROPS_ENABLE;
-			SendROPSCmdCan(rops_cmd);
-		}
-
-		SendPitchCmdCan(nb_steps);
-	}
-}
-
-/*void SendPitchROPSCmd()
-{
-	// Negative because we want pitch to ROPS (but we compute the other direction)
-	float delta_pitch = -CalcDeltaPitch(PITCH_ABSOLUTE_ROPS);
-
-	static const float pitch_to_angle = 360.0f / MAX_PITCH_VALUE;
-	float delta_angle_encoder = delta_pitch * pitch_to_angle;
-
-	static const float angle_mov_per_step_inv = 293.89f / 1.8f;
-	int nb_steps = (int)(delta_angle_encoder * angle_mov_per_step_inv);
-	// static const float angle_mov_per_step_inv = 293.89f / 1.8f;
-	// int nb_steps = (int)(delta_angle_encoder * angle_mov_per_step_inv);
-
-	if(abs(nb_steps) > MAX_STEPS_PER_CMD)
-	{
-		if(nb_steps < 0)
-			nb_steps = -MAX_STEPS_PER_CMD;
-		else
-			nb_steps = MAX_STEPS_PER_CMD;
-	}
-
-	if(pitch_done)
-	{
-		// uint32_t nb_steps_cmd = (int)
-		if (sensor_data.feedback_pitch_rops != 1)
-		{
-			uint32_t rops_cmd = ROPS_ENABLE;
-			TransmitCAN(MARIO_ROPS_CMD, (uint8_t*)&rops_cmd, 4, 0);
-			delay_us(100);
-		}
-
-		TransmitCAN(MARIO_PITCH_CMD, (uint8_t*)&nb_steps, 4, 0);
-		pitch_done = 0;
-		delay_us(100);
-	}
-}*/

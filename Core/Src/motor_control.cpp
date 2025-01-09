@@ -14,25 +14,66 @@ float func_moy_wind_direction();
 #define PITCH_UPDATE_DEG_THRESHOLD 0.25f
 #define MIN_ERROR_ANGLE 0.1f
 
-void DoPitchControl()
-{
-	if (sensor_data.feedback_pitch_mode == MOTOR_MODE_AUTOMATIC)
-	{
-		float pitch_auto_target = CalcPitchAuto();
-
-		if (abs(pitch_auto_target - sensor_data.pitch_angle) > PITCH_UPDATE_DEG_THRESHOLD)
-		{
-			float delta_angle_pales = CalcPitchAnglePales(TRUE) - pitch_auto_target;
-
-			if (abs(delta_angle_pales) > MIN_ERROR_ANGLE)
-			{
-				SendPitchAngleCmd(pitch_auto_target);
-
-
-			}
-		}
+uint8_t check_pitch_warning() {
+	if (warning_pitch_angle_close_to_up == 1) {
+		return MOTOR_DIRECTION_LEFT;
+	} else if (warning_pitch_angle_close_to_down == 1) {
+		return MOTOR_DIRECTION_RIGHT;
+	} else {
+		return 100;
 	}
 }
+
+float pitch_auto_target = 0;
+void DoPitchControl()
+{
+	if (sensor_data.feedback_pitch_mode == MOTOR_MODE_AUTOMATIC) {
+		uint8_t direction = MOTOR_DIRECTION_STOP;
+		uint8_t speed = 0;
+
+		if (rops_status == 1) {
+			pitch_auto_target = -90;
+		} else {
+			//pitch_auto_target = CalcPitchAuto();
+			pitch_auto_target += status_button_bg - status_button_bgg;
+		}
+
+
+
+		float delta_angle_pales = sensor_data.pitch_angle - pitch_auto_target;
+
+		if (abs(delta_angle_pales) > ABSOLUTE_ENCODER_RESOLUTION_ANGLE_12BITS_UPDATE_DEG_THRESHOLD) //pitch angle far from cmd
+		{
+			if (delta_angle_pales > 0) {
+				direction = MOTOR_DIRECTION_LEFT;
+			} else {
+				direction = MOTOR_DIRECTION_RIGHT;
+			}
+
+			if ((direction == MOTOR_DIRECTION_LEFT) && (warning_pitch_angle_close_to_down == 1)) {
+				direction = MOTOR_DIRECTION_STOP;
+			} else if ((direction == MOTOR_DIRECTION_RIGHT) && (warning_pitch_angle_close_to_up == 1)) {
+				direction = MOTOR_DIRECTION_STOP;
+			}
+
+			//0 à 100% -> plus on est loin de pitch_auto_target, plus la vitesse est rapide
+			if (abs(delta_angle_pales) >= 5) {
+				speed = 100;
+			} else {
+				speed = (uint8_t) (abs(delta_angle_pales) / 5 * 100);
+			}
+
+		}
+		else { //cmd is same as pitch angle
+			direction = MOTOR_DIRECTION_STOP;
+			speed = 0;
+		}
+		TransmitCAN(CAN_ID_CMD_MARIO_PITCH_DIRECTION, &direction, 4, 1);
+		TransmitCAN(CAN_ID_CMD_MARIO_PITCH_SPEED, &speed, 4, 1);
+	}
+}
+
+
 
 void DoMastControl()
 {

@@ -20,8 +20,8 @@
 /* USER CODE END Header */
 
 /* Define to prevent recursive inclusion -------------------------------------*/
-#ifndef _MAIN_H
-#define _MAIN_H
+#ifndef __MAIN_H
+#define __MAIN_H
 
 #ifdef __cplusplus
 extern "C" {
@@ -145,10 +145,9 @@ extern uint8_t pb2_value;
 extern uint8_t pb1_update;
 extern uint8_t pb2_update;
 
-extern float pitch_auto_target;
 extern float pitch_rops_target;
 extern uint8_t pitch_done;
-extern uint8_t b_rops;
+extern uint8_t rops_status;
 extern uint8_t test_buttons_volant;
 
 extern uint8_t motor_mode_mast;
@@ -239,4 +238,4 @@ void SendPitchCmdCan(int nb_steps);
 }
 #endif
 
-#endif /* _MAIN_H */
+#endif /* __MAIN_H */

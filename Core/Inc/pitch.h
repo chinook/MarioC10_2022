@@ -10,33 +10,18 @@
 
 #include "stm32f4xx_hal.h"
 
-
-//#define MAX_PITCH_VALUE 4194303
-#define MAX_PITCH_VALUE 4095
-//#define HALF_MAX_VALUE 2097152
-#define HALF_MAX_VALUE 2047
-
-//#define PITCH_ABSOLUTE_ZERO 1668850
-//#define PITCH_ABSOLUTE_ROPS 2520743
-//#define PITCH_ABSOLUTE_ZERO (580*1024)
-//#define PITCH_ABSOLUTE_ZERO (1689*1024)
-// #define PITCH_ABSOLUTE_ZERO 2707460
-
-// WTF, value is changing sometimes
-//#define PITCH_ABSOLUTE_ZERO 3870
-#define PITCH_ABSOLUTE_ZERO 2133
-
-// #define PITCH_ABSOLUTE_ROPS (2500*1024)
-// #define PITCH_ABSOLUTE_ROPS (1260*1024)
-// #define PITCH_ABSOLUTE_ROPS (2209*1024)
-// #define PITCH_ABSOLUTE_ROPS 1856510
-#define PITCH_ABSOLUTE_ROPS 2608
-
 #define MAX_STEPS_PER_CMD 500
+#define ABSOLUTE_ENCODER_RESOLUTION_ANGLE_12BITS ((float) 360 / 4096) //0.087890625
+#define ABSOLUTE_ENCODER_RESOLUTION_ANGLE_12BITS_UPDATE_DEG_THRESHOLD ((float) 1 * ABSOLUTE_ENCODER_RESOLUTION_ANGLE_12BITS)
+#define MAX_PITCH_VALUE_RAW 4095
+#define HALF_MAX_PITCH_VALUE_RAW 2047
+#define MAX_UP_PITCH_VALUE_DEGREE ((float) HALF_MAX_PITCH_VALUE_RAW * 0.75f)
+#define MAX_DOWN_PITCH_VALUE_DEGREE ((float) HALF_MAX_PITCH_VALUE_RAW * -0.75f)
 
+extern uint8_t warning_pitch_angle_close_to_up;
+extern uint8_t warning_pitch_angle_close_to_down;
 
-float CalcPitchAnglePales(uint8_t bound_angle);
-float CalcPitchAnglePales(uint32_t abs_target, uint8_t bound_angle);
+float CalcPitchAngle_raw_to_deg();
 
 float CalcTSR();
 float CalcPitchAuto();

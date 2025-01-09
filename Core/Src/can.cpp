@@ -91,20 +91,6 @@ void button_toggle(uint32_t status_bouton_x_raw, uint8_t *status_button_x, uint8
 
 void ProcessCanMessage()
 {
-	/*
-	typedef union BytesToType_
-	{
-		struct
-		{
-			uint8_t bytes[4];
-		};
-		int32_t int_val;
-		uint32_t uint_val;
-		float float_val;
-	} BytesToType;
-	static BytesToType bytesToType;
-	*/
-
 
 	// Indicate CAN working with CAN led
 	HAL_GPIO_TogglePin(LED_CANA_GPIO_Port, LED_CANA_Pin);
@@ -137,14 +123,14 @@ void ProcessCanMessage()
 	{
 		uint8_t rops_data = (can_data & 0xFF);
 		if (rops_data == ROPS_ENABLE)
-			b_rops = 1;
+			rops_status = 1;
 		else if (rops_data == ROPS_DISABLE)
-			b_rops = 0;
+			rops_status = 0;
 		else
 		{
 			// Unknown value received for ROPS command
 			// Assume it was meant to activate ROPS
-			b_rops = 1;
+			rops_status = 1;
 		}
 	}
 	else if (pRxHeader.StdId == CAN_ID_STATE_DRIVEMOTOR_ROPS)
@@ -201,12 +187,12 @@ void ProcessCanMessage()
 		button_toggle(status_button_raw, &status_button_md, &old_status_button_md, &status_button_md_toggle_tmp);
 
 		status_button_raw = extract_button_status_only_one_can_id(can_data, CAN_BIT_POSITION_BUTTON_BGG);
-		//status_button_bgg = button_press(status_button_raw);
-		button_toggle(status_button_raw, &status_button_bgg, &old_status_button_bgg, &status_button_bgg_toggle_tmp);
+		status_button_bgg = button_press(status_button_raw);
+		//button_toggle(status_button_raw, &status_button_bgg, &old_status_button_bgg, &status_button_bgg_toggle_tmp);
 
 		status_button_raw = extract_button_status_only_one_can_id(can_data, CAN_BIT_POSITION_BUTTON_BG);
-		//status_button_bg = button_press(status_button_raw);
-		button_toggle(status_button_raw, &status_button_bg, &old_status_button_bg, &status_button_bg_toggle_tmp);
+		status_button_bg = button_press(status_button_raw);
+		//button_toggle(status_button_raw, &status_button_bg, &old_status_button_bg, &status_button_bg_toggle_tmp);
 
 		status_button_raw = extract_button_status_only_one_can_id(can_data, CAN_BIT_POSITION_BUTTON_BD);
 		//status_button_bd = button_press(status_button_raw);

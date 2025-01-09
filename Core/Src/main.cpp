@@ -145,7 +145,7 @@ uint8_t flag_rotor_rpm_process = 0;
 
 uint8_t pitch_done = 0;
 
-uint8_t b_rops = 0;
+uint8_t rops_status = 0;
 
 uint8_t test_buttons_volant = 0;
 
@@ -458,7 +458,7 @@ uint32_t DoStateInit()
 	flag_rotor_rpm_process = 0;
 	flag_can_tx_send = 0;
 
-	b_rops = 0;
+	rops_status = 0;
 
 	memset(&sensor_data, 0, sizeof(SensorData));
 
@@ -493,97 +493,8 @@ uint32_t DoStateInit()
 
 uint32_t DoStateAcquisition()
 {
-	/*if (ws_receive_flag)
-	{
-		static char frame_begin[] = "$IIMWV";
 
-		// static int Led_Toggle=0;
-		// HAL_GPIO_WritePin(LD1_GPIO_Port,LD1_Pin,Led_Toggle);
-		// Led_Toggle=!Led_Toggle;
-
-		HAL_GPIO_TogglePin(LED3_GPIO_Port, LED3_Pin);
-
-
-		__disable_irq();
-
-		ws_receive_flag = 0;
-		index_buff = 0;
-
-		static uint8_t ws_message[128] = {0};
-		memcpy(ws_message, rx_buff, sizeof(ws_message));
-
-		__enable_irq();
-
-		// HAL_UART_Transmit(&huart2, ws_message, strlen(ws_message), HAL_MAX_DELAY);
-
-		if (strlen((char*)ws_message) >= 6)
-		{
-			char begin_frame[7]={0};
-			memcpy(begin_frame, ws_message, 6);
-			if (0 == strcmp(begin_frame, frame_begin))
-			{
-				char wind_dir_msg[6] = {0};
-				char wind_speed_msg[6] = {0};
-
-				memcpy(wind_dir_msg, &ws_message[7], 5);
-				memcpy(wind_speed_msg, &ws_message[15], 5);
-
-				float wind_dir = atof(wind_dir_msg);
-				float wind_speed = atof(wind_speed_msg);
-
-				sensor_data.wind_direction = wind_dir;
-				sensor_data.wind_speed = wind_speed;
-			}
-		}
-	}
-	*/
 	ReadWeatherStation();
-
-	/*
-	static uint8_t rops_hack = 0;
-	if (sensor_data.rotor_rpm >= 100)
-	{
-		// ACTIVATE ROPS
-		rops_hack = 1;
-	}
-
-	static uint8_t first = 1;
-	if (rops_hack && first)
-	{
-		first = 0;
-		rops_hack = 0;
-
-		uint32_t pitch_mode = MOTOR_MODE_AUTOMATIC;
-		TransmitCAN(MARIO_PITCH_MODE_CMD, (uint8_t*)&pitch_mode, 4, 0);
-		delay_us(100);
-
-		HAL_Delay(50);
-
-		// int nb_steps = 12000;
-		for (int i = 0; i < 120; ++i)
-		{
-			uint32_t pitch_mode = MOTOR_MODE_AUTOMATIC;
-			TransmitCAN(MARIO_PITCH_MODE_CMD, (uint8_t*)&pitch_mode, 4, 0);
-			delay_us(500);
-
-			int nb_steps = 100;
-			TransmitCAN(MARIO_PITCH_CMD, (uint8_t*)&nb_steps, 4, 0);
-			delay_us(100);
-
-			HAL_Delay(50);
-		}
-
-		pitch_done = 0;
-		delay_us(100);
-
-		while (1)
-		{
-		}
-
-		return STATE_MOTOR_CONTROL;
-	}
-	*/
-
 
 	if (flag_acq_interval)
 	{
@@ -591,16 +502,15 @@ uint32_t DoStateAcquisition()
 
 		// Read pitch and mast encoders
 		sensor_data.pitch_encoder = ReadPitchEncoder();
-		sensor_data.pitch_angle = CalcPitchAnglePales(false);
-		// uint32_t pitch_val2 = ReadPitchEncoder2();
+		sensor_data.pitch_angle = CalcPitchAngle_raw_to_deg();
 
-		sensor_data.mast_encoder = ReadMastEncoder();
+		//sensor_data.mast_encoder = ReadMastEncoder();
 		//TODO: (Marc) Mast Encoder
-		sensor_data.mast_encoder = 0;
+		//sensor_data.mast_encoder = 0;
 
 		// Read limit switches of mast
-		sensor_data.limit1 = HAL_GPIO_ReadPin(LIMIT1_GPIO_Port, LIMIT1_Pin);
-		sensor_data.limit2 = HAL_GPIO_ReadPin(LIMIT2_GPIO_Port, LIMIT2_Pin);
+		//sensor_data.limit1 = HAL_GPIO_ReadPin(LIMIT1_GPIO_Port, LIMIT1_Pin);
+		//sensor_data.limit2 = HAL_GPIO_ReadPin(LIMIT2_GPIO_Port, LIMIT2_Pin);
 
 		// Read Torque + Loadcell adc
 //#define ADC_RESOLUTION 65536.0f  // (16 bits)
@@ -615,7 +525,7 @@ uint32_t DoStateAcquisition()
 		// sensor_data.torque = ReadTorqueADC();
 		// sensor_data.loadcell = ReadLoadcellADC();
 
-		ReadTorqueLoadcellADC();
+		//ReadTorqueLoadcellADC();
 	}
 
 	if (flag_wheel_rpm_process)
@@ -643,36 +553,8 @@ uint32_t DoStateAcquisition()
 	{
 		flag_rotor_rpm_process = 0;
 
-		// Process rpm counters
-//#define ROTOR_CNT_PER_ROT 360.0f
-//#define RPM_ROTOR_CNT_TIME_INVERSE 10.0f // Same as dividing by 100ms
-		// static const float rotor_counter_to_rpm_constant = (RPM_ROTOR_CNT_TIME_INVERSE / ROTOR_CNT_PER_ROT) * 60.0f;
-
-
-		// sensor_data.wheel_rpm = (float)wheel_rpm_counter * wheel_counter_to_rpm_constant;
-		// sensor_data.wheel_rpm = (float)wheel_rpm_counter;
-		// sensor_data.rotor_rpm = (float)rotor_rpm_counter * rotor_counter_to_rpm_constant;
-		// sensor_data.rotor_rpm = (float)rotor_rpm_counter;
-
-
 		ReadRotorRPM();
-		// sensor_data.rotor_rpm = GetRotorRPM();
-		// rotor_rpm_counter = 0;
-		static int tsr_counter = 0;
-		if (tsr_counter++ >= 20)
-		{
-			tsr_counter = 0;
-			sensor_data.tsr = SimulateTSR();
-		}
 	}
-
-	// Check ROPS
-//	if (sensor_data.rotor_rpm >= ROTOR_RPM_ROPS)
-//	{
-//		// ACTIVATE ROPS
-//		//b_rops = 1;
-//		//return STATE_ROPS;
-//	}
 
 	return STATE_CHECK_ROPS;
 }
@@ -683,18 +565,20 @@ uint32_t DoStateCheckROPS()
 
 	if (sensor_data.rotor_rpm > ROTOR_RPM_ROPS || status_button_bdd == 1)
 	{
-		b_rops = 1;
+		rops_status = 1;
 	}
 	else
 	{
-		b_rops = 0;
+		rops_status = 0;
 	}
 
-	if (b_rops)
+	if (rops_status)
 		return STATE_ROPS;
 	else
 		return STATE_MOTOR_CONTROL;
 }
+
+
 
 uint8_t motor_mode_pitch = MOTOR_MODE_MANUAL;
 uint8_t motor_mode_mast = MOTOR_MODE_MANUAL;
@@ -706,7 +590,10 @@ uint32_t DoStateMotorControl()
 	if (flag_motor_control == 1) {
 		flag_motor_control = 0;
 
-		if (status_button_mg == 1) {
+
+		if (rops_status == 1) {
+			motor_mode_pitch = MOTOR_MODE_AUTOMATIC;
+		} else if (status_button_mg == 1) {
 			motor_mode_pitch = MOTOR_MODE_AUTOMATIC;
 		} else if (status_button_mg == 0) {
 			motor_mode_pitch = MOTOR_MODE_MANUAL;
@@ -726,23 +613,29 @@ uint32_t DoStateMotorControl()
 				if (status_button_hgg == 1) motor_direction_pitch--;
 				if (status_button_hg == 1) motor_direction_pitch++;
 
+				uint8_t direction = MOTOR_DIRECTION_STOP;
 				switch (motor_direction_pitch) {
-				case -1: {
-					uint8_t cmd = MOTOR_DIRECTION_LEFT;
-					TransmitCAN(CAN_ID_CMD_MARIO_PITCH_DIRECTION, &cmd, 4, 1);
-					break;
-				} case 0: {
-					uint8_t cmd = MOTOR_DIRECTION_STOP;
-					TransmitCAN(CAN_ID_CMD_MARIO_PITCH_DIRECTION, &cmd, 4, 1);
-					break;
-				} case 1: {
-					uint8_t cmd = MOTOR_DIRECTION_RIGHT;
-					TransmitCAN(CAN_ID_CMD_MARIO_PITCH_DIRECTION, &cmd, 4, 1);
-					break;
-				} default :
-					uint8_t cmd = MOTOR_DIRECTION_STOP;
-					TransmitCAN(CAN_ID_CMD_MARIO_PITCH_DIRECTION, &cmd, 4, 1);
+					case -1: {
+						if (warning_pitch_angle_close_to_down != 1) {
+							direction = MOTOR_DIRECTION_LEFT;
+						} else {
+							direction = MOTOR_DIRECTION_STOP;
+						}
+						break;
+					} case 0: {
+						direction = MOTOR_DIRECTION_STOP;
+						break;
+					} case 1: {
+						if (warning_pitch_angle_close_to_up != 1) {
+							direction = MOTOR_DIRECTION_RIGHT;
+						} else {
+							direction = MOTOR_DIRECTION_STOP;
+						}
+						break;
+					} default :
+						direction = MOTOR_DIRECTION_STOP;
 				}
+				TransmitCAN(CAN_ID_CMD_MARIO_PITCH_DIRECTION, &direction, 4, 1);
 			} else {
 				TransmitCAN(CAN_ID_CMD_MARIO_PITCH_MODE, &motor_mode_pitch, 4, 1);
 			}
@@ -785,7 +678,7 @@ uint32_t DoStateMotorControl()
 					} default :
 						uint8_t cmd = MOTOR_DIRECTION_STOP;
 						TransmitCAN(CAN_ID_CMD_MARIO_MAST_DIRECTION, &cmd, 4, 1);
-					}
+				}
 			} else {
 				TransmitCAN(CAN_ID_CMD_MARIO_MAST_MODE, &motor_mode_mast, 4, 1);
 			}
@@ -799,7 +692,7 @@ uint32_t DoStateROPS()
 {
 
 	// Stay in ROPS
-	while (b_rops)
+	while (rops_status)
 	{
 		//delay_us(250);
 
@@ -823,18 +716,19 @@ uint32_t DoStateROPS()
 			timer_100ms_counter = 0;
 
 			flag_rotor_rpm_process = 1;
-			flag_weather_station = 1;
+
 		}
 		if (timer_250ms_counter >= 250) {
 			timer_250ms_counter = 0;
 
+			flag_weather_station = 1;
 		}
 		if (timer_500ms_counter >= 500) {
 			timer_500ms_counter = 0;
 
 			flag_wheel_rpm_process = 1;
 			flag_alive_led = 1;
-			flag_uart_tx_send = 1;
+			//flag_uart_tx_send = 1;
 		}
 
 		// Alive led
@@ -848,30 +742,26 @@ uint32_t DoStateROPS()
  #define MAX_ERROR_ROPS 80
 		// TODO: (Marc) Will not work if value loops around the zero, need proper bounds checking
 
-		if (std::fabs(sensor_data.pitch_encoder - PITCH_ABSOLUTE_ROPS) > MAX_ERROR_ROPS)
-		{
-			SendPitchROPSCmd();
-		}
+		//if (std::fabs(sensor_data.pitch_encoder - PITCH_ABSOLUTE_ROPS) > MAX_ERROR_ROPS)
+		//{
+		//	SendPitchROPSCmd();
+		//}
 
-		SendPitchAngleCmd(90);
+		//SendPitchAngleCmd(90);
+
 		DoStateAcquisition();
 		DoStateMotorControl();
 
 		DoStateCan();
-		DoStateDataLogging();
-		DoStateUartTx();
+		//DoStateDataLogging();
+		//DoStateUartTx();
 
 		DoStateCheckROPS();
 	}
 
 	// Exit ROPS state
-	uint32_t rops_cmd = ROPS_DISABLE;
-	TransmitCAN(CAN_ID_CMD_MARIO_ROPS, (uint8_t*)&rops_cmd, 4, 0);
-	//delay_us(100);
-
-	// uint32_t pitch_mode_cmd = MOTOR_MODE_MANUAL;
-	// TransmitCAN(MARIO_PITCH_MODE_CMD, (uint8_t*)&pitch_mode_cmd, 4, 0);
-	// delay_us(100);
+	//uint32_t rops_cmd = ROPS_DISABLE;
+	//TransmitCAN(CAN_ID_CMD_MARIO_ROPS, (uint8_t*)&rops_cmd, 4, 0);
 
 	return STATE_ACQUISITION;
 }
@@ -931,9 +821,8 @@ uint32_t DoStateCan()
 				can_tx_state++;
 				break;
 			} case 8: {
-#define absolute_encoder_resolution_angle_12bit 0.087890625
-				//float pitch_value = (float)sensor_data.pitch_angle + update_test;
-				float pitch_value = (float)((sensor_data.pitch_encoder * absolute_encoder_resolution_angle_12bit) + 0) + update_test;
+				float pitch_value = (float)sensor_data.pitch_angle + update_test;
+				//float pitch_value = (float)((sensor_data.pitch_encoder * ABSOLUTE_ENCODER_RESOLUTION_ANGLE_12BITS) + 0) + update_test;
 				//float pitch_value = (float)sensor_data.pitch_encoder;
 				TransmitCAN(CAN_ID_MARIO_VAL_PITCH, (uint8_t*)&pitch_value, 4, 0);
 				can_tx_state++;
@@ -949,7 +838,7 @@ uint32_t DoStateCan()
 				can_tx_state++;
 				break;
 			} case 11: {
-				float pitch_cmd_value = update_test + motor_mode_mast;
+				float pitch_cmd_value = pitch_auto_target + update_test;
 				TransmitCAN(CAN_ID_MARIO_VAL_PITCH_CMD, (uint8_t*)&pitch_cmd_value, 4, 0);
 				can_tx_state++;
 				break;

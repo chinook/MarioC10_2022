@@ -8,9 +8,12 @@
 #ifndef _MOTOR_CONTROL_H_
 #define _MOTOR_CONTROL_H_
 
+#include "stm32f4xx_hal.h" //uint8_t
 
+uint8_t check_pitch_warning();
 void DoPitchControl();
 void DoMastControl();
 
+extern float pitch_auto_target;
 
 #endif /* _MOTOR_CONTROL_H_ */

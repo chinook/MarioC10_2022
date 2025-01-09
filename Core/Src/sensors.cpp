@@ -5,11 +5,11 @@
 
 #include <string.h>
 #include <stdlib.h>
+#include <math.h>
 
 
 //define PITCH_ENCODER_BITS 17
 //#define PITCH_ENCODER_BITS 24
-
 
 
 uint8_t pb1_value = 0;
@@ -283,6 +283,73 @@ void ReadRotorRPM() // 100 ms interval
 		sensor_data.rotor_rpm = rotor_rpm;
 }
 
+double calculate_moy_uint32(uint32_t *data, uint32_t size) {
+	double sum = 0;
+	for (int i = 0; i < size; i++) {
+		sum += data[i];
+	}
+	return sum / size;
+}
+
+double calculate_std_dev_uint32(double moy, uint32_t *data, uint32_t size) {
+	double sum = 0;
+	for (int i = 0; i < size; i++) {
+		sum += pow(((double) data[i]) - moy, 2);
+	}
+	return sqrt(sum / size); //double std_dev
+}
+
+int compare(const void *a, const void *b) {
+    return (*(int *)a - *(int *)b);
+}
+
+double calculate_median_uint32(uint32_t *data, uint32_t size) {
+	uint32_t data_temp[size] = {0};
+
+	for (int i = 0; i < size; i++) {
+		data_temp[i] = data[i];
+	}
+
+	qsort(data_temp, size, sizeof(uint32_t), compare);
+
+    if (size % 2 == 0) {
+        // Even number of elements: average of the two middle elements
+        return (data_temp[size / 2 - 1] + data_temp[size / 2]) / 2.0;
+    } else {
+        // Odd number of elements: middle element
+        return data_temp[size / 2];
+    }
+}
+
+#define log_encoder_raw_data_size 10
+uint32_t log_encoder_raw_data[log_encoder_raw_data_size] = {0};
+uint32_t log_encoder_raw_data_filtered[log_encoder_raw_data_size] = {0};
+
+uint32_t verify_new_encoder_raw_data(uint32_t encoder_raw_data) {
+	//ajouter la nouvelle valeur dans la liste et on scrap la plus vieille
+	for (int i = log_encoder_raw_data_size - 1; i > 0; i--) {
+		log_encoder_raw_data[i] = log_encoder_raw_data[i - 1];
+		log_encoder_raw_data_filtered[i] = log_encoder_raw_data_filtered[i - 1];
+	}
+	log_encoder_raw_data[0] = encoder_raw_data;
+
+	//moyenne
+	double moy = calculate_moy_uint32(log_encoder_raw_data, log_encoder_raw_data_size);
+
+	//écart type
+	double std_dev = calculate_std_dev_uint32(moy, log_encoder_raw_data, log_encoder_raw_data_size);
+	double lower_bound = moy - 1 * std_dev;
+	double upper_bound = moy + 1 * std_dev;
+
+	//si la valeur est mauvaise on la remplace par la moyenne
+	if ((encoder_raw_data < lower_bound) || (encoder_raw_data > upper_bound)) {
+		encoder_raw_data = (uint32_t) calculate_median_uint32(log_encoder_raw_data, log_encoder_raw_data_size);
+	}
+	log_encoder_raw_data_filtered[0] = encoder_raw_data;
+
+	return log_encoder_raw_data_filtered[0];
+}
+
 
 #define PITCH_ENCODER_BITS 12
 uint32_t ReadPitchEncoder()
@@ -293,18 +360,19 @@ uint32_t ReadPitchEncoder()
 	delay_us(1);
 
 	// SSI works from 100kHz to about 2MHz
-	uint32_t pitch_data = 0;
+	uint32_t encoder_raw_data = 0;
 	for(int i = 0; i < PITCH_ENCODER_BITS; i++)
 	{
 
 		HAL_GPIO_WritePin(Pitch_Clock_GPIO_Port, Pitch_Clock_Pin, GPIO_PIN_RESET);
 		delay_us(1);
 
-		pitch_data <<= 1;
+		encoder_raw_data <<= 1;
 
 		if (HAL_GPIO_ReadPin(Pitch_Data_GPIO_Port, Pitch_Data_Pin)) {
-			pitch_data |= 1;
+			encoder_raw_data |= 1;
 		}
+
 
 
 		HAL_GPIO_WritePin(Pitch_Clock_GPIO_Port, Pitch_Clock_Pin, GPIO_PIN_SET);
@@ -312,7 +380,9 @@ uint32_t ReadPitchEncoder()
 
 	}
 
-	return pitch_data;
+	encoder_raw_data = verify_new_encoder_raw_data(encoder_raw_data);
+
+	return encoder_raw_data;
 }
 
 uint32_t ReadMastEncoder()
@@ -453,3 +523,4 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
 	// HAL_GPIO_WritePin(LED_WARNING_GPIO_Port, LED_WARNING_Pin, GPIO_PIN_RESET);
   }
 }
+
