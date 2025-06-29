@@ -25,6 +25,9 @@ uint8_t aRxBuffer[256];
 //uint8_t ws_rx_byte;
 uint8_t ws_rx_byte[4];
 
+//ADC loadcell torque flag
+uint8_t flag_IT_adc1_loadcell_torque = 0;
+
 
 // RPM counters
 
@@ -134,8 +137,22 @@ void get_wind_speed_dir(float* wind_dir) {
 
 }
 */
-void ReadTorqueLoadcellADC()
-{
+
+//static const float TORQUE_RAW_TO_VALUE = 1 / (4096 / 160);
+static const float TORQUE_RAW_TO_VALUE = 0.0390625;
+float calibration_torque = 0;
+
+//divided by 12 bits ADC then multiplied by max weigth loadcell in lb then lb to kg INVERTED because * is faster
+//so * (1 / (12bits * max_weigth_loadcell_lb / lb_to_kg))
+static const float LOADCELL_RAW_TO_VALUE = 1 / (4096 / 200 * 2.2);
+float calibration_loadcell = 0;
+
+void ADC_Raw_to_Value(uint32_t torque_raw, uint32_t loadcell_raw) {
+	sensor_data.torque = ((float) torque_raw * TORQUE_RAW_TO_VALUE) + calibration_torque;
+	sensor_data.loadcell = ((float) loadcell_raw * LOADCELL_RAW_TO_VALUE) + calibration_loadcell;
+}
+
+void ReadTorqueLoadcellADC() {
 	ADC_ChannelConfTypeDef sConfigChannel8 = {0};
 	sConfigChannel8.SamplingTime = ADC_SAMPLETIME_15CYCLES;
 	sConfigChannel8.Channel = ADC_CHANNEL_8;
@@ -177,59 +194,48 @@ void ReadTorqueLoadcellADC()
 	sensor_data.torque = (float)adc_loadcell * ADC_TO_TORQUE;
 }
 
-/*
-float ReadTorqueADC()
-{
+uint32_t adc_value_pb0 = 0;
+uint32_t adc_value_pb1 = 0;
+uint8_t adc_channel = 0;
+void ReadTorqueLoadcellADC_IT() {
+	if (flag_IT_adc1_loadcell_torque == 1) {
+		flag_IT_adc1_loadcell_torque = 0;
 
-	ADC_ChannelConfTypeDef sConfig = {0};
-	sConfig.SamplingTime = ADC_SAMPLETIME_15CYCLES;
-	sConfig.Channel = ADC_CHANNEL_8;
-    sConfig.Rank = 1;
-    if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK)
-    {
-    	Error_Handler();
-    }
+		ADC_ChannelConfTypeDef sConfig = {0};
+		if (adc_channel == 0) {
+			adc_value_pb0 = HAL_ADC_GetValue(&hadc1); // Read PB0 (ADC1_IN8) TORQUE
+			adc_channel = 1;
 
+			//configure for loadcell reading
+			sConfig.SamplingTime = ADC_SAMPLETIME_15CYCLES;
+			sConfig.Channel = ADC_CHANNEL_9;
+			sConfig.Rank = 1;
+			if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK)
+			{
+				Error_Handler();
+			}
+		} else {
+			adc_value_pb1 = HAL_ADC_GetValue(&hadc1); // Read PB1 (ADC1_IN9) LOADCELL
+			adc_channel = 0;
 
-    HAL_ADC_Start(&hadc1);
+			//configure for torque reading
+			sConfig.SamplingTime = ADC_SAMPLETIME_15CYCLES;
+			sConfig.Channel = ADC_CHANNEL_8;
+			sConfig.Rank = 1; //always on 1 because it works
+			if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK)
+			{
+				Error_Handler();
+			}
+		}
 
-	HAL_ADC_PollForConversion(&hadc1, 1);
-	uint16_t adc_result = HAL_ADC_GetValue(&hadc1);
+		HAL_ADC_Start_IT(&hadc1);
 
-	HAL_ADC_Stop(&hadc1);
-
-	static const float IAA_VDC_TO_ADC_V = 3.3f / 5.0f;
-	static const float ADC_TO_TORQUE = IAA_VDC_TO_ADC_V * (5.0f/5.095f) * 160.0f / 4095.0f;
-	return (float)adc_result * ADC_TO_TORQUE;
-	// return adc_result;
-}
-
-float ReadLoadcellADC()
-{
-
-	ADC_ChannelConfTypeDef sConfig = {0};
-	sConfig.SamplingTime = ADC_SAMPLETIME_15CYCLES;
-	sConfig.Channel = ADC_CHANNEL_9;
-	sConfig.Rank = 2;
-
-	if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK)
-	{
-		Error_Handler();
+		ADC_Raw_to_Value(adc_value_pb0, adc_value_pb1);
 	}
-
-
-	HAL_ADC_Start(&hadc1);
-
-	HAL_ADC_PollForConversion(&hadc1, 1);
-	uint16_t adc_result = HAL_ADC_GetValue(&hadc1);
-
-	HAL_ADC_Stop(&hadc1);
-
-	static const float IAA_VDC_TO_ADC_V = 3.3f / 5.0f;
-	static const float ADC_TO_LOADCELL = IAA_VDC_TO_ADC_V * (5.0f/5.095f) * 500.0f / 4095.0f;
-	return (float)adc_result * ADC_TO_LOADCELL;
 }
-*/
+
+
+
 
 void ReadWheelRPM() // 500ms interval
 {
@@ -278,7 +284,6 @@ void ReadRotorRPM() // 100 ms interval
 			return;
 		}
 		ignore_counter = 0;
-
 
 		sensor_data.rotor_rpm = rotor_rpm;
 }

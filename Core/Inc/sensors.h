@@ -12,13 +12,13 @@
 
 // Need to export because interrupts initialization needs address for writing read bytes
 extern uint8_t ws_rx_byte[4];
-
+extern uint8_t flag_IT_adc1_loadcell_torque;
 
 void ReadWeatherStation();
 
-// float ReadTorqueADC();
-// float ReadLoadcellADC();
+
 void ReadTorqueLoadcellADC();
+void ReadTorqueLoadcellADC_IT();
 
 void ReadWheelRPM();
 void CalcVehicleSpeed();

@@ -71,6 +71,8 @@ uint8_t old_status_button_bdd = 0;
 uint8_t status_button_bdd_toggle_tmp = 0;
 uint8_t status_button_bdd = 0;
 
+uint32_t status_button_debug = 0;
+
 void button_toggle(uint32_t status_bouton_x_raw, uint8_t *status_button_x, uint8_t *old_status_button_x, uint8_t *status_button_x_toggle_tmp) {
 	if (*old_status_button_x != status_bouton_x_raw) {
 		*status_button_x_toggle_tmp += 1;
@@ -162,43 +164,55 @@ void ProcessCanMessage()
 		old_cmd_mario_pitch_mode = can_data;*/
 	}
 	else if (pRxHeader.StdId == CAN_ID_STATUS_BUTTONS) {
+		status_button_debug = 0; //reset debug bouton
+
 		uint32_t status_button_raw = extract_button_status_only_one_can_id(can_data, CAN_BIT_POSITION_BUTTON_HGG);
+		status_button_debug += button_press(status_button_raw) * CAN_BIT_POSITION_BUTTON_HGG;
 		status_button_hgg = button_press(status_button_raw);
 		//button_toggle(status_button_raw, &status_button_hgg, &old_status_button_hgg, &status_button_hgg_toggle_tmp);
 
 		status_button_raw = extract_button_status_only_one_can_id(can_data, CAN_BIT_POSITION_BUTTON_HG);
+		status_button_debug += button_press(status_button_raw) * CAN_BIT_POSITION_BUTTON_HG;
 		status_button_hg = button_press(status_button_raw);
 		//button_toggle(status_button_raw, &status_button_hg, &old_status_button_hg, &status_button_hg_toggle_tmp);
 
 		status_button_raw = extract_button_status_only_one_can_id(can_data, CAN_BIT_POSITION_BUTTON_HD);
+		status_button_debug += button_press(status_button_raw) * CAN_BIT_POSITION_BUTTON_HD;
 		status_button_hd = button_press(status_button_raw);
 		//button_toggle(status_button_raw, &status_button_hd, &old_status_button_hd, &status_button_hd_toggle_tmp);
 
 		status_button_raw = extract_button_status_only_one_can_id(can_data, CAN_BIT_POSITION_BUTTON_HDD);
+		status_button_debug += button_press(status_button_raw) * CAN_BIT_POSITION_BUTTON_HDD;
 		status_button_hdd = button_press(status_button_raw);
 		//button_toggle(status_button_raw, &status_button_hdd, &old_status_button_hdd, &status_button_hdd_toggle_tmp);
 
 		status_button_raw = extract_button_status_only_one_can_id(can_data, CAN_BIT_POSITION_BUTTON_MG);
+		status_button_debug += button_press(status_button_raw) * CAN_BIT_POSITION_BUTTON_MG;
 		//status_button_mg = button_press(status_button_raw);
 		button_toggle(status_button_raw, &status_button_mg, &old_status_button_mg, &status_button_mg_toggle_tmp);
 
 		status_button_raw = extract_button_status_only_one_can_id(can_data, CAN_BIT_POSITION_BUTTON_MD);
+		status_button_debug += button_press(status_button_raw) * CAN_BIT_POSITION_BUTTON_MD;
 		//status_button_md = button_press(status_button_raw);
 		button_toggle(status_button_raw, &status_button_md, &old_status_button_md, &status_button_md_toggle_tmp);
 
 		status_button_raw = extract_button_status_only_one_can_id(can_data, CAN_BIT_POSITION_BUTTON_BGG);
+		status_button_debug += button_press(status_button_raw) * CAN_BIT_POSITION_BUTTON_BGG;
 		status_button_bgg = button_press(status_button_raw);
 		//button_toggle(status_button_raw, &status_button_bgg, &old_status_button_bgg, &status_button_bgg_toggle_tmp);
 
 		status_button_raw = extract_button_status_only_one_can_id(can_data, CAN_BIT_POSITION_BUTTON_BG);
+		status_button_debug += button_press(status_button_raw) * CAN_BIT_POSITION_BUTTON_BG;
 		status_button_bg = button_press(status_button_raw);
 		//button_toggle(status_button_raw, &status_button_bg, &old_status_button_bg, &status_button_bg_toggle_tmp);
 
 		status_button_raw = extract_button_status_only_one_can_id(can_data, CAN_BIT_POSITION_BUTTON_BD);
+		status_button_debug += button_press(status_button_raw) * CAN_BIT_POSITION_BUTTON_BD;
 		//status_button_bd = button_press(status_button_raw);
 		button_toggle(status_button_raw, &status_button_bd, &old_status_button_bd, &status_button_bd_toggle_tmp);
 
 		status_button_raw = extract_button_status_only_one_can_id(can_data, CAN_BIT_POSITION_BUTTON_BDD);
+		status_button_debug += button_press(status_button_raw) * CAN_BIT_POSITION_BUTTON_BDD;
 		//status_button_bdd = button_press(status_button_raw);
 		button_toggle(status_button_raw, &status_button_bdd, &old_status_button_bdd, &status_button_bdd_toggle_tmp);
 	}

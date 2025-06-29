@@ -17,9 +17,9 @@
 
 //pour 12 bits, c'est des valeurs de 0 à 4095
 //doit être recalibrer À CHAQUE FOIS que le spider ou l'encodeur est démonté, sinon le 0 n'est plus bon
-#define PITCH_ABSOLUTE_ZERO 2629
+#define PITCH_ABSOLUTE_ZERO 1460
 #define ENCODER_TO_PALES_RATIO (360.0f / 245.0f) // À VÉRIFIER pas mal bon environ 0,65 tour d'encodeur pour 1 tour de pale
-#define PALE_RADIUS 0.874f
+#define PALE_RADIUS 0.879f
 
 
 static float log_pitch[200] = {0};
@@ -125,21 +125,21 @@ void log_pitch_angle(float pitch_angle) {
 
 float CalcTSR()
 {
-	static const float RPM_TO_RADS = 2.0f * PI / 60.0f;
+	static const float RPM_TO_RADS = 2 * PI / 60; //0.10472
 
 
-	float rotor_speed_omega = RPM_TO_RADS * sensor_data.rotor_rpm;
-	//float rotor_speed_omega = RPM_TO_RADS * 800;
+	//float rotor_speed_omega = RPM_TO_RADS * sensor_data.rotor_rpm;
+	float rotor_speed_omega = RPM_TO_RADS * 1000;
 
 	//float wind_speed_ms = KNOTS_TO_MS * sensor_data.wind_speed;
-	float wind_speed_ms = sensor_data.wind_speed_avg;
-	//float wind_speed_ms = 12;
+	float wind_speed_ms = sensor_data.wind_speed;
+	//float wind_speed_ms = 15;
 
 	if (abs(wind_speed_ms) < MIN_EPSILON)
 		return 0.0f;
 
 
-	float tsr = (PALE_RADIUS * rotor_speed_omega) / wind_speed_ms;
+	float tsr = (PALE_RADIUS * rotor_speed_omega) / wind_speed_ms; //(0.874*x) / 15 = 6
 
 	if (tsr < MIN_EPSILON)
 		return 0.0f;
@@ -156,8 +156,11 @@ float CalcPitchAuto()
 	if (ALGO_C12)
 	{
 		float pitch_target = 0;
-		if (tsr <= 2) {
-			pitch_target = 17.0f;
+		if (tsr <= 2.5) {
+			pitch_target = 17;
+		}
+		else if (tsr >= 10) {
+			pitch_target = 1;
 		}
 		else {
 			float tsr2 = tsr * tsr;
@@ -184,15 +187,16 @@ float CalcPitchAuto()
 							  0.000967116 * tsr10 -
 							  0.000015428 * tsr11;
 		}
-		pitch_target = -pitch_target; // - ???
-		/*
-		if (pitch_target >= -4) {
-			pitch_target = -4;
+
+		if (pitch_target <= -2) {
+			pitch_target = -2;
 		}
-		else if (pitch_target <= -17) {
-			pitch_target = -17;
+		else if (pitch_target >= 17) {
+			pitch_target = 17;
 		}
-		*/
+
+		pitch_target = -pitch_target; // - selon le sens de rotation des pâles / rops pales en drapeau
+
 		return pitch_target;
 	}
 }

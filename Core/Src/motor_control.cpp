@@ -34,13 +34,14 @@ void DoPitchControl()
 		if (rops_status == 1) {
 			pitch_auto_target = -90;
 		} else {
-			//pitch_auto_target = CalcPitchAuto();
-			pitch_auto_target += status_button_bg - status_button_bgg;
+			pitch_auto_target = CalcPitchAuto();
+			//pitch_auto_target += status_button_bg - status_button_bgg;
 		}
 
 
 
 		float delta_angle_pales = sensor_data.pitch_angle - pitch_auto_target;
+
 
 		if (abs(delta_angle_pales) > ABSOLUTE_ENCODER_RESOLUTION_ANGLE_12BITS_UPDATE_DEG_THRESHOLD) //pitch angle far from cmd
 		{
@@ -50,24 +51,27 @@ void DoPitchControl()
 				direction = MOTOR_DIRECTION_RIGHT;
 			}
 
-			if ((direction == MOTOR_DIRECTION_LEFT) && (warning_pitch_angle_close_to_down == 1)) {
-				direction = MOTOR_DIRECTION_STOP;
-			} else if ((direction == MOTOR_DIRECTION_RIGHT) && (warning_pitch_angle_close_to_up == 1)) {
-				direction = MOTOR_DIRECTION_STOP;
-			}
-
 			//0 à 100% -> plus on est loin de pitch_auto_target, plus la vitesse est rapide
 			if (abs(delta_angle_pales) >= 5) {
 				speed = 100;
-			} else {
-				speed = (uint8_t) (abs(delta_angle_pales) / 5 * 100);
+			} else { //entre 0 et 5 degrées d'écart
+				speed = (uint8_t) ((abs(delta_angle_pales) / 5) * 100);
 			}
 
+			if ((direction == MOTOR_DIRECTION_LEFT) && (warning_pitch_angle_close_to_down == 1)) {
+				direction = MOTOR_DIRECTION_STOP;
+				speed = 0;
+			} else if ((direction == MOTOR_DIRECTION_RIGHT) && (warning_pitch_angle_close_to_up == 1)) {
+				direction = MOTOR_DIRECTION_STOP;
+				speed = 0;
+			}
 		}
 		else { //cmd is same as pitch angle
 			direction = MOTOR_DIRECTION_STOP;
 			speed = 0;
 		}
+		motor_direction_pitch = direction;
+		motor_speed_pitch = speed;
 		TransmitCAN(CAN_ID_CMD_MARIO_PITCH_DIRECTION, &direction, 4, 1);
 		TransmitCAN(CAN_ID_CMD_MARIO_PITCH_SPEED, &speed, 4, 1);
 	}

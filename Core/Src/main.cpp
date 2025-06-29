@@ -91,6 +91,7 @@ TIM_HandleTypeDef htim4;
 TIM_HandleTypeDef htim5;
 
 UART_HandleTypeDef huart5;
+UART_HandleTypeDef huart1;
 UART_HandleTypeDef huart2;
 
 /* USER CODE BEGIN PV */
@@ -121,6 +122,7 @@ uint8_t timer_500ms_flag;
 // 500ms flags
 uint8_t flag_alive_led = 0;
 uint8_t flag_uart_tx_send = 0;
+uint8_t flag_telemetry = 0;
 uint8_t flag_lora_tx_send = 0;
 uint8_t flag_can_tx_send = 0;
 // 100ms flags
@@ -159,6 +161,7 @@ static void MX_ADC1_Init(void);
 static void MX_I2C1_Init(void);
 static void MX_SPI2_Init(void);
 static void MX_UART5_Init(void);
+static void MX_USART1_UART_Init(void);
 static void MX_USART2_UART_Init(void);
 static void MX_TIM3_Init(void);
 static void MX_I2C3_Init(void);
@@ -206,6 +209,7 @@ int main(void)
   MX_I2C1_Init();
   MX_SPI2_Init();
   MX_UART5_Init();
+  MX_USART1_UART_Init();
   MX_USART2_UART_Init();
   MX_TIM3_Init();
   MX_I2C3_Init();
@@ -243,6 +247,7 @@ void ExecuteStateMachine()
 		timer_250ms_counter++;
 		timer_500ms_counter++;
 
+
 		flag_affichage_volant = 1;
 		flag_acq_interval = 1;
 	}
@@ -263,10 +268,13 @@ void ExecuteStateMachine()
 	}
 	if (timer_500ms_counter >= 500) {
 		timer_500ms_counter = 0;
+		flag_alive_led = 1;
+
 
 		flag_wheel_rpm_process = 1;
-		flag_alive_led = 1;
 		flag_uart_tx_send = 1;
+
+		//flag_telemetry = 1;
 	}
 
 	// Alive led
@@ -522,10 +530,11 @@ uint32_t DoStateAcquisition()
 		// sensor_data.torque = 0.0f;
 
 
-		// sensor_data.torque = ReadTorqueADC();
-		// sensor_data.loadcell = ReadLoadcellADC();
+		//sensor_data.torque = ReadTorqueADC();
+		//sensor_data.loadcell = ReadLoadcellADC();
 
 		//ReadTorqueLoadcellADC();
+		ReadTorqueLoadcellADC_IT();
 	}
 
 	if (flag_wheel_rpm_process)
@@ -567,10 +576,10 @@ uint32_t DoStateCheckROPS()
 	{
 		rops_status = 1;
 	}
-	else
+	/*else
 	{
 		rops_status = 0;
-	}
+	}*/
 
 	if (rops_status)
 		return STATE_ROPS;
@@ -583,8 +592,12 @@ uint32_t DoStateCheckROPS()
 uint8_t motor_mode_pitch = MOTOR_MODE_MANUAL;
 uint8_t motor_mode_mast = MOTOR_MODE_MANUAL;
 
-int8_t motor_direction_pitch = 0;
+uint8_t motor_direction_pitch = 0;
 int8_t motor_direction_mast = 0;
+
+uint8_t motor_speed_pitch = 0;
+uint8_t motor_speed_mast = 0;
+
 uint32_t DoStateMotorControl()
 {
 	if (flag_motor_control == 1) {
@@ -601,31 +614,29 @@ uint32_t DoStateMotorControl()
 			//wrong code in CAN from Volant
 		}
 		if (motor_mode_pitch == MOTOR_MODE_AUTOMATIC) {
-			if (sensor_data.feedback_pitch_mode == MOTOR_MODE_AUTOMATIC) {
-				DoPitchControl();
-			} else {
-				TransmitCAN(CAN_ID_CMD_MARIO_PITCH_MODE, &motor_mode_pitch, 4, 1);
-			}
+			//if (sensor_data.feedback_pitch_mode == MOTOR_MODE_AUTOMATIC) {
+			DoPitchControl();
+			TransmitCAN(CAN_ID_CMD_MARIO_PITCH_MODE, &motor_mode_pitch, 4, 1);
 		}
 		else if (motor_mode_pitch == MOTOR_MODE_MANUAL) {
 			if (sensor_data.feedback_pitch_mode == MOTOR_MODE_MANUAL) {
-				motor_direction_pitch = 0;
-				if (status_button_hgg == 1) motor_direction_pitch--;
-				if (status_button_hg == 1) motor_direction_pitch++;
+				motor_direction_pitch = 2;
+				if (status_button_hgg == 1) motor_direction_pitch-=2;
+				if (status_button_hg == 1) motor_direction_pitch+=2;
 
 				uint8_t direction = MOTOR_DIRECTION_STOP;
 				switch (motor_direction_pitch) {
-					case -1: {
+					case MOTOR_DIRECTION_LEFT: {
 						if (warning_pitch_angle_close_to_down != 1) {
 							direction = MOTOR_DIRECTION_LEFT;
 						} else {
 							direction = MOTOR_DIRECTION_STOP;
 						}
 						break;
-					} case 0: {
+					} case MOTOR_DIRECTION_STOP: {
 						direction = MOTOR_DIRECTION_STOP;
 						break;
-					} case 1: {
+					} case MOTOR_DIRECTION_RIGHT: {
 						if (warning_pitch_angle_close_to_up != 1) {
 							direction = MOTOR_DIRECTION_RIGHT;
 						} else {
@@ -635,7 +646,10 @@ uint32_t DoStateMotorControl()
 					} default :
 						direction = MOTOR_DIRECTION_STOP;
 				}
-				TransmitCAN(CAN_ID_CMD_MARIO_PITCH_DIRECTION, &direction, 4, 1);
+				motor_direction_pitch = direction;
+				TransmitCAN(CAN_ID_CMD_MARIO_PITCH_DIRECTION, &motor_direction_pitch, 4, 1);
+				motor_speed_pitch = 100;
+				TransmitCAN(CAN_ID_CMD_MARIO_PITCH_SPEED, &motor_speed_pitch, 4, 1);
 			} else {
 				TransmitCAN(CAN_ID_CMD_MARIO_PITCH_MODE, &motor_mode_pitch, 4, 1);
 			}
@@ -767,6 +781,8 @@ uint32_t DoStateROPS()
 }
 
 float update_test = 0;
+static uint32_t live_counter = 0;
+
 uint32_t DoStateCan()
 {
 	//affichage volant 16 cmd au 1ms donc 16ms de refresh rate
@@ -791,44 +807,44 @@ uint32_t DoStateCan()
 				can_tx_state++;
 				break;
 			} case 2: {
-				float wind_dir_value = (float)sensor_data.wind_direction + update_test;
+				float wind_dir_value = (float)sensor_data.wind_direction + update_test + status_button_hd;
 				TransmitCAN(CAN_ID_MARIO_VAL_WIND_DIR, (uint8_t*)&wind_dir_value, 4, 0);
 				can_tx_state++;
 				break;
 			} case 3: {
-				float speed_value = (float)sensor_data.wheel_rpm + update_test;
+				float speed_value = (float)sensor_data.wheel_rpm + update_test + status_button_hdd;
 				TransmitCAN(CAN_ID_MARIO_VAL_SPEED, (uint8_t*)&speed_value, 4, 0);
 				can_tx_state++;
 				break;
 			} case 4: {
-				float tsr_value = CalcTSR() + update_test;
+				float tsr_value = CalcTSR() + update_test + status_button_mg;
 				TransmitCAN(CAN_ID_MARIO_VAL_TSR, (uint8_t*)&tsr_value, 4, 0);
 				can_tx_state++;
 				break;
 			} case 5: {
-				float gear_ratio_value = update_test + status_button_hd;
+				float gear_ratio_value = update_test + status_button_md;
 				TransmitCAN(CAN_ID_MARIO_VAL_GEAR_RATIO, (uint8_t*)&gear_ratio_value, 4, 0);
 				can_tx_state++;
 				break;
 			} case 6: {
-				float rotor_speed_value = (float)sensor_data.rotor_rpm + update_test;
+				float rotor_speed_value = (float)sensor_data.rotor_rpm + update_test + status_button_bgg;
 				TransmitCAN(CAN_ID_MARIO_VAL_ROTOR_SPEED, (uint8_t*)&rotor_speed_value, 4, 0);
 				can_tx_state++;
 				break;
 			} case 7: {
-				float rotor_rops_cmd_value = update_test + ROTOR_RPM_ROPS + status_button_bdd;
+				float rotor_rops_cmd_value = update_test + ROTOR_RPM_ROPS + status_button_bg;
 				TransmitCAN(CAN_ID_MARIO_VAL_ROTOR_ROPS_CMD, (uint8_t*)&rotor_rops_cmd_value, 4, 0);
 				can_tx_state++;
 				break;
 			} case 8: {
-				float pitch_value = (float)sensor_data.pitch_angle + update_test;
+				float pitch_value = (float)sensor_data.pitch_angle + update_test + status_button_bd;
 				//float pitch_value = (float)((sensor_data.pitch_encoder * ABSOLUTE_ENCODER_RESOLUTION_ANGLE_12BITS) + 0) + update_test;
 				//float pitch_value = (float)sensor_data.pitch_encoder;
 				TransmitCAN(CAN_ID_MARIO_VAL_PITCH, (uint8_t*)&pitch_value, 4, 0);
 				can_tx_state++;
 				break;
 			} case 9: {
-				float efficiency_value = update_test + motor_mode_pitch;
+				float efficiency_value = update_test + motor_mode_pitch + status_button_bdd;
 				TransmitCAN(CAN_ID_MARIO_VAL_EFFICIENCY, (uint8_t*)&efficiency_value, 4, 0);
 				can_tx_state++;
 				break;
@@ -843,22 +859,22 @@ uint32_t DoStateCan()
 				can_tx_state++;
 				break;
 			} case 12: {
-				float debug_log_1_value = update_test + status_button_bgg;
+				float debug_log_1_value = update_test + sensor_data.torque; //status_button_bgg + motor_mode_pitch +
 				TransmitCAN(CAN_ID_MARIO_VAL_DEBUG_LOG_1, (uint8_t*)&debug_log_1_value, 4, 0);
 				can_tx_state++;
 				break;
 			} case 13: {
-				float debug_log_2_value = update_test + status_button_bg;
+				float debug_log_2_value = update_test + sensor_data.loadcell; //status_button_bg + motor_direction_pitch +
 				TransmitCAN(CAN_ID_MARIO_VAL_DEBUG_LOG_2, (uint8_t*)&debug_log_2_value, 4, 0);
 				can_tx_state++;
 				break;
 			} case 14: {
-				float debug_log_3_value = update_test + status_button_bd;
+				float debug_log_3_value = update_test + live_counter + motor_speed_pitch;
 				TransmitCAN(CAN_ID_MARIO_VAL_DEBUG_LOG_3, (uint8_t*)&debug_log_3_value, 4, 0);
 				can_tx_state++;
 				break;
 			} case 15: {
-				float debug_log_4_value = update_test + status_button_bdd;
+				float debug_log_4_value = status_button_debug + update_test;
 				TransmitCAN(CAN_ID_MARIO_VAL_DEBUG_LOG_4, (uint8_t*)&debug_log_4_value, 4, 0);
 				can_tx_state = 0;
 				break;
@@ -1089,8 +1105,20 @@ static void UartTxAcquisition()
 	//delay_us(200);
 }
 
+static uint32_t tel_temp = 0;
 uint32_t DoStateUartTx()
 {
+	if (flag_telemetry) {
+		flag_telemetry = 0;
+
+		live_counter++;
+		HAL_UART_Transmit(&huart1, (uint8_t*)&live_counter, sizeof(live_counter), HAL_MAX_DELAY);
+
+		HAL_UART_Receive(&huart1, (uint8_t*)&tel_temp, sizeof(tel_temp), HAL_MAX_DELAY);
+		live_counter -= tel_temp;
+		tel_temp = 0;
+	}
+
 	if (flag_uart_tx_send)
 	{
 		flag_uart_tx_send = 0;
@@ -1279,48 +1307,41 @@ static void MX_ADC1_Init(void)
   /** Configure the global features of the ADC (Clock, Resolution, Data Alignment and number of conversion)
   */
   hadc1.Instance = ADC1;
-  hadc1.Init.ClockPrescaler = ADC_CLOCK_SYNC_PCLK_DIV2;
-  hadc1.Init.Resolution = ADC_RESOLUTION_12B;
-  hadc1.Init.ScanConvMode = ENABLE;
-  hadc1.Init.ContinuousConvMode = ENABLE;
-  hadc1.Init.DiscontinuousConvMode = DISABLE;
-  hadc1.Init.ExternalTrigConvEdge = ADC_EXTERNALTRIGCONVEDGE_NONE;
-  hadc1.Init.ExternalTrigConv = ADC_SOFTWARE_START;
-  hadc1.Init.DataAlign = ADC_DATAALIGN_RIGHT;
-  hadc1.Init.NbrOfConversion = 2;
-  hadc1.Init.DMAContinuousRequests = DISABLE;
-  hadc1.Init.EOCSelection = ADC_EOC_SINGLE_CONV;
-  if (HAL_ADC_Init(&hadc1) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  /** Configure for the selected ADC regular channel its corresponding rank in the sequencer and its sample time.
-  */
-  sConfig.Channel = ADC_CHANNEL_8;
-  sConfig.Rank = 1;
-  sConfig.SamplingTime = ADC_SAMPLETIME_3CYCLES;
-  if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  /** Configure for the selected ADC regular channel its corresponding rank in the sequencer and its sample time.
-  */
-  sConfig.Channel = ADC_CHANNEL_9;
-  sConfig.Rank = 2;
-  if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK)
-  {
-    Error_Handler();
-  }
+    hadc1.Init.ClockPrescaler = ADC_CLOCK_SYNC_PCLK_DIV4;
+    hadc1.Init.Resolution = ADC_RESOLUTION_12B;
+    hadc1.Init.ScanConvMode = ENABLE;
+    hadc1.Init.ContinuousConvMode = ENABLE;
+    hadc1.Init.DiscontinuousConvMode = DISABLE;
+    hadc1.Init.ExternalTrigConvEdge = ADC_EXTERNALTRIGCONVEDGE_NONE;
+    hadc1.Init.ExternalTrigConv = ADC_SOFTWARE_START;
+    hadc1.Init.DataAlign = ADC_DATAALIGN_RIGHT;
+    hadc1.Init.NbrOfConversion = 2;
+    hadc1.Init.DMAContinuousRequests = DISABLE;
+    hadc1.Init.EOCSelection = ADC_EOC_SINGLE_CONV;
+    if (HAL_ADC_Init(&hadc1) != HAL_OK)
+    {
+      Error_Handler();
+    }
+    /** Configure for the selected ADC regular channel its corresponding rank in the sequencer and its sample time.
+    */
+    sConfig.Channel = ADC_CHANNEL_8;
+    sConfig.Rank = 1;
+    sConfig.SamplingTime = ADC_SAMPLETIME_15CYCLES;
+    if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK)
+    {
+      Error_Handler();
+    }
+    /** Configure for the selected ADC regular channel its corresponding rank in the sequencer and its sample time.
+    */
+    sConfig.Channel = ADC_CHANNEL_9;
+    sConfig.Rank = 2;
+    if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK)
+    {
+      Error_Handler();
+    }
   /* USER CODE BEGIN ADC1_Init 2 */
-/*
-  sConfig.Channel = ADC_CHANNEL_9;
-  sConfig.Rank = 2;
-  sConfig.SamplingTime = ADC_SAMPLETIME_3CYCLES;
-  if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  */
+
+  HAL_ADC_Start_IT(&hadc1); //start interrrupt ADC1
 
   /* USER CODE END ADC1_Init 2 */
 
@@ -1691,6 +1712,41 @@ static void MX_UART5_Init(void)
   /* USER CODE BEGIN UART5_Init 2 */
 
   /* USER CODE END UART5_Init 2 */
+
+}
+
+/**
+  * @brief USART1 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_USART1_UART_Init(void)
+{
+
+  /* USER CODE BEGIN USART1_Init 0 */
+
+  /* USER CODE END USART1_Init 0 */
+
+  /* USER CODE BEGIN USART1_Init 1 */
+
+  /* USER CODE END USART1_Init 1 */
+  huart1.Instance = USART1;
+  huart1.Init.BaudRate = 115200;
+  huart1.Init.WordLength = UART_WORDLENGTH_8B;
+  huart1.Init.StopBits = UART_STOPBITS_1;
+  huart1.Init.Parity = UART_PARITY_NONE;
+  huart1.Init.Mode = UART_MODE_TX_RX;
+  huart1.Init.HwFlowCtl = UART_HWCONTROL_NONE;
+  huart1.Init.OverSampling = UART_OVERSAMPLING_16;
+  if (HAL_UART_Init(&huart1) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN USART1_Init 2 */
+
+  __HAL_RCC_USART1_CLK_ENABLE();
+
+  /* USER CODE END USART1_Init 2 */
 
 }
 

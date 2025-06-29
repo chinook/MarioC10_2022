@@ -152,6 +152,8 @@ extern uint8_t test_buttons_volant;
 
 extern uint8_t motor_mode_mast;
 extern uint8_t motor_mode_pitch;
+extern uint8_t motor_direction_pitch;
+extern uint8_t motor_speed_pitch;
 
 void delay_us(uint16_t delay16_us);
 void delay_ms(uint16_t delay16_ms);
