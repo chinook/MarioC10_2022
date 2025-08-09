@@ -62,7 +62,7 @@ extern CAN_HandleTypeDef hcan1;
 extern I2C_HandleTypeDef hi2c1;
 extern I2C_HandleTypeDef hi2c3;
 
-extern SPI_HandleTypeDef hspi2;
+//extern SPI_HandleTypeDef hspi2;
 
 extern TIM_HandleTypeDef htim1;
 extern TIM_HandleTypeDef htim2;
@@ -174,6 +174,10 @@ void SendPitchCmdCan(int nb_steps);
 #define LIMIT2_EXTI_IRQn EXTI4_IRQn
 #define Pitch_Data_Pin GPIO_PIN_5
 #define Pitch_Data_GPIO_Port GPIOE
+#define mast_encoder_Pin GPIO_PIN_2
+#define mast_encoder_GPIO_Port GPIOC
+#define mast_speed_Pin GPIO_PIN_3
+#define mast_speed_GPIO_Port GPIOC
 #define Mast_Data_Pin GPIO_PIN_6
 #define Mast_Data_GPIO_Port GPIOA
 #define Mast_Clock_Pin GPIO_PIN_7
@@ -193,8 +197,8 @@ void SendPitchCmdCan(int nb_steps);
 #define LORA_INT_Pin GPIO_PIN_12
 #define LORA_INT_GPIO_Port GPIOE
 #define LORA_INT_EXTI_IRQn EXTI15_10_IRQn
-#define LORA_CS_Pin GPIO_PIN_14
-#define LORA_CS_GPIO_Port GPIOB
+#define mast_dir_Pin GPIO_PIN_10
+#define mast_dir_GPIO_Port GPIOB
 #define LED_WARNING_Pin GPIO_PIN_8
 #define LED_WARNING_GPIO_Port GPIOD
 #define LED_ERROR_Pin GPIO_PIN_9
