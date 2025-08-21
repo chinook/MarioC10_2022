@@ -34,6 +34,12 @@
 /* Exported types ------------------------------------------------------------*/
 /* USER CODE BEGIN ET */
 
+ extern uint8_t timer_1ms_flag;
+ extern uint8_t timer_50ms_flag;
+ extern uint8_t timer_100ms_flag;
+ extern uint8_t timer_250ms_flag;
+ extern uint8_t timer_500ms_flag;
+
 /* USER CODE END ET */
 
 /* Exported constants --------------------------------------------------------*/
@@ -69,6 +75,8 @@ void TIM4_IRQHandler(void);
 void EXTI15_10_IRQHandler(void);
 void TIM5_IRQHandler(void);
 void UART5_IRQHandler(void);
+void TIM6_DAC_IRQHandler(void);
+void TIM7_IRQHandler(void);
 /* USER CODE BEGIN EFP */
 
 /* USER CODE END EFP */

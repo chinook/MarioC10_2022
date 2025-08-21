@@ -13,6 +13,7 @@
 uint8_t check_pitch_warning();
 void DoPitchControl();
 void DoMastControl();
+void DriveMotorMast();
 
 extern float pitch_auto_target;
 

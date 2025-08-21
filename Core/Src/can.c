@@ -1,0 +1,366 @@
+/*
+ * can.c
+ *
+ *  Created on: Aug 17, 2025
+ *      Author: thoma
+ */
+
+#include "can.h"
+#include "main.h"
+
+#include "stm32f4xx_hal.h"
+
+
+
+uint32_t extract_button_status_only_one_can_id(uint32_t can_data,
+		uint32_t CAN_BIT_POSITION_BUTTON_X) {
+	if ((can_data & CAN_BIT_POSITION_BUTTON_X) != 0) {
+		return 1;
+	} else {
+		return 0;
+	}
+}
+
+uint8_t button_press(uint32_t status_bouton_raw) {
+	if (status_bouton_raw == CAN_STATUS_PRESS) {
+		return 1;
+	} else if (status_bouton_raw == CAN_STATUS_UNPRESS) {
+		return 0;
+	} else {
+		return -1;
+	}
+}
+
+uint8_t old_status_button_hgg = 0;
+uint8_t status_button_hgg_toggle_tmp = 0;
+uint8_t status_button_hgg = 0;
+
+uint8_t old_status_button_hg = 0;
+uint8_t status_button_hg_toggle_tmp = 0;
+uint8_t status_button_hg = 0;
+
+uint8_t old_status_button_hd = 0;
+uint8_t status_button_hd_toggle_tmp = 0;
+uint8_t status_button_hd = 0;
+
+uint8_t old_status_button_hdd = 0;
+uint8_t status_button_hdd_toggle_tmp = 0;
+uint8_t status_button_hdd = 0;
+
+uint8_t old_status_button_mg = 0;
+uint8_t status_button_mg_toggle_tmp = 0;
+uint8_t status_button_mg = 0;
+
+uint8_t old_status_button_md = 0;
+uint8_t status_button_md_toggle_tmp = 0;
+uint8_t status_button_md = 0;
+
+uint8_t old_status_button_bgg = 0;
+uint8_t status_button_bgg_toggle_tmp = 0;
+uint8_t status_button_bgg = 0;
+
+uint8_t old_status_button_bg = 0;
+uint8_t status_button_bg_toggle_tmp = 0;
+uint8_t status_button_bg = 0;
+
+uint8_t old_status_button_bd = 0;
+uint8_t status_button_bd_toggle_tmp = 0;
+uint8_t status_button_bd = 0;
+
+uint8_t old_status_button_bdd = 0;
+uint8_t status_button_bdd_toggle_tmp = 0;
+uint8_t status_button_bdd = 0;
+
+uint32_t status_button_debug = 0;
+
+void button_toggle(uint32_t status_bouton_x_raw, uint8_t *status_button_x,
+		uint8_t *old_status_button_x, uint8_t *status_button_x_toggle_tmp) {
+	if (*old_status_button_x != status_bouton_x_raw) {
+		*status_button_x_toggle_tmp += 1;
+		if (*status_button_x_toggle_tmp == 1) {
+			if (*status_button_x == CAN_STATUS_PRESS) {
+				*status_button_x = CAN_STATUS_UNPRESS;
+			} else {
+				*status_button_x = CAN_STATUS_PRESS;
+			}
+		}
+	}
+	if (*status_button_x_toggle_tmp >= 2) {
+		*status_button_x_toggle_tmp = 0;
+	}
+	*old_status_button_x = status_bouton_x_raw;
+}
+
+
+
+void ProcessCanMessage() {
+
+	// Indicate CAN working with CAN led
+	HAL_GPIO_TogglePin(LED_CANA_GPIO_Port, LED_CANA_Pin);
+
+	// Technically CAN data can be 8 bytes but we only send 4-bytes data to the motor driver
+	// uint32_t upper_can_data = rxData[4] | (rxData[5] << 8) | (rxData[6] << 16) | (rxData[7] << 24);
+	uint32_t can_data = rxData[0] | (rxData[1] << 8) | (rxData[2] << 16)
+			| (rxData[3] << 24);
+
+	if (pRxHeader.StdId == CAN_ID_MARIO_VAL_DEBUG_LOG_4) {
+		HAL_GPIO_TogglePin(LED3_GPIO_Port, LED3_Pin);
+	} else if (pRxHeader.StdId == CAN_ID_STATE_DRIVEMOTOR_PITCH_MODE) {
+		sensor_data.feedback_pitch_mode = (can_data & 0xFF);
+	} else if (pRxHeader.StdId == CAN_ID_STATE_DRIVEMOTOR_MAST_MODE) {
+		sensor_data.feedback_mast_mode = (can_data & 0xFF);
+	} else if (pRxHeader.StdId == CAN_ID_DRIVEMOTOR_PITCH_MOVE_DONE) {
+		pitch_done = 1;
+	} else if (pRxHeader.StdId == DRIVEMOTOR_PITCH_FAULT_STALL) {
+		sensor_data.pitch_fault_stall = (can_data & 0xFF);
+	} else if (pRxHeader.StdId == DRIVEMOTOR_MAST_FAULT_STALL) {
+		sensor_data.mast_fault_stall = (can_data & 0xFF);
+	} else if (pRxHeader.StdId == CAN_ID_CMD_VOLANT_MANUAL_ROPS) {
+		uint8_t rops_data = (can_data & 0xFF);
+		if (rops_data == ROPS_ENABLE)
+			rops_status = 1;
+		else if (rops_data == ROPS_DISABLE)
+			rops_status = 0;
+		else {
+			// Unknown value received for ROPS command
+			// Assume it was meant to activate ROPS
+			//rops_status = 1;
+		}
+	} else if (pRxHeader.StdId == CAN_ID_STATE_DRIVEMOTOR_ROPS) {
+		uint8_t rops_data = (can_data & 0xFF);
+		sensor_data.feedback_pitch_rops = rops_data;
+		/*
+		 if (rops_data == ROPS_ENABLE)
+		 sensor_data.feedback_pitch_rops = 1;
+		 else if (rops_data == ROPS_DISABLE)
+		 sensor_data.feedback_pitch_rops = 0;
+		 else
+		 sensor_data.feedback_pitch_rops = rops_data;
+		 */
+	} else if (pRxHeader.StdId == CAN_ID_CMD_MARIO_PITCH_MODE) {
+
+		/*
+		 if (old_cmd_mario_pitch_mode != can_data) {
+		 cmd_mario_pitch_mode_toggle++;
+		 }
+		 if (cmd_mario_pitch_mode_toggle >= 2) {
+		 cmd_mario_pitch_mode_toggle = 0;
+		 if (test_buttons_volant == MOTOR_MODE_AUTOMATIC) {
+		 test_buttons_volant = MOTOR_MODE_MANUAL;
+		 } else {
+		 test_buttons_volant = MOTOR_MODE_AUTOMATIC;
+		 }
+		 }
+		 old_cmd_mario_pitch_mode = can_data;*/
+	} else if (pRxHeader.StdId == CAN_ID_STATUS_BUTTONS) {
+		status_button_debug = 0; //reset debug bouton
+
+		uint32_t status_button_raw = extract_button_status_only_one_can_id(can_data,
+				CAN_BIT_POSITION_BUTTON_HGG);
+		status_button_debug += button_press(
+				status_button_raw) * CAN_BIT_POSITION_BUTTON_HGG;
+		status_button_hgg = button_press(status_button_raw);
+		//button_toggle(status_button_raw, &status_button_hgg, &old_status_button_hgg, &status_button_hgg_toggle_tmp);
+
+		status_button_raw = extract_button_status_only_one_can_id(can_data,
+				CAN_BIT_POSITION_BUTTON_HG);
+		status_button_debug += button_press(
+				status_button_raw) * CAN_BIT_POSITION_BUTTON_HG;
+		status_button_hg = button_press(status_button_raw);
+		//button_toggle(status_button_raw, &status_button_hg, &old_status_button_hg, &status_button_hg_toggle_tmp);
+
+		status_button_raw = extract_button_status_only_one_can_id(can_data,
+				CAN_BIT_POSITION_BUTTON_HD);
+		status_button_debug += button_press(
+				status_button_raw) * CAN_BIT_POSITION_BUTTON_HD;
+		status_button_hd = button_press(status_button_raw);
+		//button_toggle(status_button_raw, &status_button_hd, &old_status_button_hd, &status_button_hd_toggle_tmp);
+
+		status_button_raw = extract_button_status_only_one_can_id(can_data,
+				CAN_BIT_POSITION_BUTTON_HDD);
+		status_button_debug += button_press(
+				status_button_raw) * CAN_BIT_POSITION_BUTTON_HDD;
+		status_button_hdd = button_press(status_button_raw);
+		//button_toggle(status_button_raw, &status_button_hdd, &old_status_button_hdd, &status_button_hdd_toggle_tmp);
+
+		status_button_raw = extract_button_status_only_one_can_id(can_data,
+				CAN_BIT_POSITION_BUTTON_MG);
+		status_button_debug += button_press(
+				status_button_raw) * CAN_BIT_POSITION_BUTTON_MG;
+		//status_button_mg = button_press(status_button_raw);
+		button_toggle(status_button_raw, &status_button_mg, &old_status_button_mg,
+				&status_button_mg_toggle_tmp);
+
+		status_button_raw = extract_button_status_only_one_can_id(can_data,
+				CAN_BIT_POSITION_BUTTON_MD);
+		status_button_debug += button_press(
+				status_button_raw) * CAN_BIT_POSITION_BUTTON_MD;
+		//status_button_md = button_press(status_button_raw);
+		button_toggle(status_button_raw, &status_button_md, &old_status_button_md,
+				&status_button_md_toggle_tmp);
+
+		status_button_raw = extract_button_status_only_one_can_id(can_data,
+				CAN_BIT_POSITION_BUTTON_BGG);
+		status_button_debug += button_press(
+				status_button_raw) * CAN_BIT_POSITION_BUTTON_BGG;
+		status_button_bgg = button_press(status_button_raw);
+		//button_toggle(status_button_raw, &status_button_bgg, &old_status_button_bgg, &status_button_bgg_toggle_tmp);
+
+		status_button_raw = extract_button_status_only_one_can_id(can_data,
+				CAN_BIT_POSITION_BUTTON_BG);
+		status_button_debug += button_press(
+				status_button_raw) * CAN_BIT_POSITION_BUTTON_BG;
+		status_button_bg = button_press(status_button_raw);
+		//button_toggle(status_button_raw, &status_button_bg, &old_status_button_bg, &status_button_bg_toggle_tmp);
+
+		status_button_raw = extract_button_status_only_one_can_id(can_data,
+				CAN_BIT_POSITION_BUTTON_BD);
+		status_button_debug += button_press(
+				status_button_raw) * CAN_BIT_POSITION_BUTTON_BD;
+		//status_button_bd = button_press(status_button_raw);
+		button_toggle(status_button_raw, &status_button_bd, &old_status_button_bd,
+				&status_button_bd_toggle_tmp);
+
+		status_button_raw = extract_button_status_only_one_can_id(can_data,
+				CAN_BIT_POSITION_BUTTON_BDD);
+		status_button_debug += button_press(
+				status_button_raw) * CAN_BIT_POSITION_BUTTON_BDD;
+		//status_button_bdd = button_press(status_button_raw);
+		button_toggle(status_button_raw, &status_button_bdd, &old_status_button_bdd,
+				&status_button_bdd_toggle_tmp);
+	}
+
+	else {
+		// Unknown CAN ID
+	}
+}
+
+
+
+
+/**
+ * @brief CAN1 Initialization Function
+ * @param None
+ * @retval None
+ */
+void CanInit() {
+
+	/* USER CODE BEGIN CAN1_Init 0 */
+
+	/* USER CODE END CAN1_Init 0 */
+
+	/* USER CODE BEGIN CAN1_Init 1 */
+
+	/* USER CODE END CAN1_Init 1 */
+	hcan1.Instance = CAN1;
+	hcan1.Init.Prescaler = 12;
+	hcan1.Init.Mode = CAN_MODE_NORMAL;
+	hcan1.Init.SyncJumpWidth = CAN_SJW_3TQ;
+	hcan1.Init.TimeSeg1 = CAN_BS1_11TQ;
+	hcan1.Init.TimeSeg2 = CAN_BS2_4TQ;
+	hcan1.Init.TimeTriggeredMode = DISABLE;
+	hcan1.Init.AutoBusOff = ENABLE;
+	hcan1.Init.AutoWakeUp = DISABLE;
+	hcan1.Init.AutoRetransmission = DISABLE;
+	hcan1.Init.ReceiveFifoLocked = DISABLE;
+	hcan1.Init.TransmitFifoPriority = ENABLE;
+	if (HAL_CAN_Init(&hcan1) != HAL_OK) {
+		Error_Handler();
+	}
+	/* USER CODE BEGIN CAN1_Init 2 */
+
+	/*
+	 CAN_FilterTypeDef filter_fifo0;
+	 // All common bits go into the ID register
+	 filter_fifo0.FilterIdHigh = MARIO_FIFO0_RX_FILTER_ID_HIGH;
+	 filter_fifo0.FilterIdLow = MARIO_FIFO0_RX_FILTER_ID_LOW;
+
+	 // Which bits to compare for filter
+	 filter_fifo0.FilterMaskIdHigh = MARIO_FIFO0_RX_FILTER_MASK_HIGH;
+	 filter_fifo0.FilterMaskIdLow = MARIO_FIFO0_RX_FILTER_MASK_LOW;
+
+	 filter_fifo0.FilterFIFOAssignment = CAN_FILTER_FIFO0;
+	 filter_fifo0.FilterBank = 18; // Which filter to use from the assigned ones
+	 filter_fifo0.FilterMode = CAN_FILTERMODE_IDMASK;
+	 filter_fifo0.FilterScale = CAN_FILTERSCALE_32BIT;
+	 filter_fifo0.FilterActivation = CAN_FILTER_ENABLE;
+	 filter_fifo0.SlaveStartFilterBank = 20; // How many filters to assign to CAN1
+	 if (HAL_CAN_ConfigFilter(&hcan1, &filter_fifo0) != HAL_OK)
+	 {
+	 Error_Handler();
+	 }
+	 */
+	/*
+	 CAN_FilterTypeDef filter_all;
+	 // All common bits go into the ID register
+	 filter_all.FilterIdHigh = 0x0000;
+	 filter_all.FilterIdLow = 0x0000;
+
+	 // Which bits to compare for filter
+	 filter_all.FilterMaskIdHigh = 0x0000;
+	 filter_all.FilterMaskIdLow = 0x0000;
+
+	 filter_all.FilterFIFOAssignment = CAN_FILTER_FIFO0;
+	 filter_all.FilterBank = 18; // Which filter to use from the assigned ones
+	 filter_all.FilterMode = CAN_FILTERMODE_IDMASK;
+	 filter_all.FilterScale = CAN_FILTERSCALE_32BIT;
+	 filter_all.FilterActivation = CAN_FILTER_ENABLE;
+	 filter_all.SlaveStartFilterBank = 20; // How many filters to assign to CAN1
+	 if (HAL_CAN_ConfigFilter(&hcan1, &filter_all) != HAL_OK)
+	 {
+	 Error_Handler();
+	 }
+	 */
+
+	CAN_FilterTypeDef sf_fifo0;
+	// All common bits go into the ID register
+	sf_fifo0.FilterIdHigh = MARIO_FIFO0_RX_FILTER_ID_HIGH;
+	sf_fifo0.FilterIdLow = MARIO_FIFO0_RX_FILTER_ID_LOW;
+
+	// Which bits to compare for filter
+	sf_fifo0.FilterMaskIdHigh = 0x0000;
+	sf_fifo0.FilterMaskIdLow = (FIFO0_RX_FILTER_MASK_LOW & 0x07FF);
+
+	sf_fifo0.FilterFIFOAssignment = CAN_FILTER_FIFO0;
+	sf_fifo0.FilterBank = 2; // Which filter to use from the assigned ones
+	sf_fifo0.FilterMode = CAN_FILTERMODE_IDMASK;
+	sf_fifo0.FilterScale = CAN_FILTERSCALE_32BIT;
+	sf_fifo0.FilterActivation = CAN_FILTER_ENABLE;
+	sf_fifo0.SlaveStartFilterBank = 20; // How many filters to assign to CAN1
+	if (HAL_CAN_ConfigFilter(&hcan1, &sf_fifo0) != HAL_OK) {
+		Error_Handler();
+	}
+
+	CAN_FilterTypeDef sf_fifo1;
+	// All common bits go into the ID register
+	sf_fifo1.FilterIdHigh = FIFO1_RX_FILTER_ID_HIGH;
+	sf_fifo1.FilterIdLow = FIFO1_RX_FILTER_ID_LOW;
+
+	// Which bits to compare for filter
+	sf_fifo1.FilterMaskIdHigh = 0x0000;
+	sf_fifo1.FilterMaskIdLow = (FIFO1_RX_FILTER_MASK_LOW & 0x07FF);
+
+	sf_fifo1.FilterFIFOAssignment = CAN_FILTER_FIFO1;
+	sf_fifo1.FilterBank = 3; // Which filter to use from the assigned ones
+	sf_fifo1.FilterMode = CAN_FILTERMODE_IDMASK;
+	sf_fifo1.FilterScale = CAN_FILTERSCALE_32BIT;
+	sf_fifo1.FilterActivation = CAN_FILTER_ENABLE;
+	sf_fifo1.SlaveStartFilterBank = 20; // How many filters to assign to CAN1
+	if (HAL_CAN_ConfigFilter(&hcan1, &sf_fifo1) != HAL_OK) {
+		Error_Handler();
+	}
+
+	if (HAL_CAN_Start(&hcan1) != HAL_OK) {
+		Error_Handler();
+	}
+	// if (HAL_CAN_ActivateNotification(&hcan1, CAN_IT_RX_FIFO0_MSG_PENDING | CAN_IT_RX_FIFO1_MSG_PENDING | CAN_IT_BUSOFF | CAN_IT_ERROR | CAN_IT_ERROR_WARNING | CAN_IT_ERROR_PASSIVE) != HAL_OK)
+	if (HAL_CAN_ActivateNotification(&hcan1,
+			CAN_IT_RX_FIFO0_MSG_PENDING | CAN_IT_RX_FIFO1_MSG_PENDING) != HAL_OK)
+	// if (HAL_CAN_ActivateNotification(&hcan1, CAN_IT_RX_FIFO0_MSG_PENDING) != HAL_OK)
+			{
+		Error_Handler();
+	}
+
+	/* USER CODE END CAN1_Init 2 */
+
+}

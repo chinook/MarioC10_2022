@@ -27,6 +27,6 @@ extern uint32_t status_button_debug;
 
 HAL_StatusTypeDef TransmitCAN(uint32_t id, uint8_t* buf, uint8_t size, uint8_t with_priority);
 
-void MX_CAN1_Init(void);
+void CanInit();
 
 #endif /* _CAN_H_ */

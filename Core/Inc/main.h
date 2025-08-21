@@ -59,9 +59,6 @@ extern ADC_HandleTypeDef hadc1;
 
 extern CAN_HandleTypeDef hcan1;
 
-extern I2C_HandleTypeDef hi2c1;
-extern I2C_HandleTypeDef hi2c3;
-
 //extern SPI_HandleTypeDef hspi2;
 
 extern TIM_HandleTypeDef htim1;
@@ -107,6 +104,7 @@ typedef struct SensorData_{
 }SensorData;
 
 extern SensorData sensor_data;
+extern UART_HandleTypeDef huart1;
 
 /*
 extern uint32_t wheel_rpm_counter;
@@ -123,16 +121,10 @@ extern uint8_t timer_100ms_flag;
 extern uint8_t timer_500ms_flag;
 */
 
-extern uint32_t wheel_rpm_counter;
+
 extern uint32_t rotor_rpm_counter;
 // extern uint32_t rpm_counter_time;
 
-extern uint8_t timer_1ms_flag;
-extern uint8_t timer_100ms_flag;
-extern uint8_t timer_250ms_flag;
-extern uint8_t timer_500ms_flag;
-
-static uint8_t flag_weather_station;
 
 // Weather station
 extern uint8_t rx_buff[128];
@@ -152,7 +144,7 @@ extern uint8_t test_buttons_volant;
 
 extern uint8_t motor_mode_mast;
 extern uint8_t motor_mode_pitch;
-extern uint8_t motor_direction_pitch;
+extern int8_t motor_direction_pitch;
 extern uint8_t motor_speed_pitch;
 
 void delay_us(uint16_t delay16_us);
@@ -160,6 +152,10 @@ void delay_ms(uint16_t delay16_ms);
 
 void SendROPSCmdCan(uint32_t rops_cmd);
 void SendPitchCmdCan(int nb_steps);
+
+extern CAN_TxHeaderTypeDef pTxHeader;
+extern CAN_RxHeaderTypeDef pRxHeader;
+extern uint8_t rxData[8];
 
 /* USER CODE END EFP */
 
@@ -182,21 +178,14 @@ void SendPitchCmdCan(int nb_steps);
 #define Mast_Data_GPIO_Port GPIOA
 #define Mast_Clock_Pin GPIO_PIN_7
 #define Mast_Clock_GPIO_Port GPIOA
-#define USB_RESET_Pin GPIO_PIN_4
-#define USB_RESET_GPIO_Port GPIOC
+#define PB_USB_RESET_Pin GPIO_PIN_4
+#define PB_USB_RESET_GPIO_Port GPIOC
 #define USB_TX_EN_Pin GPIO_PIN_5
 #define USB_TX_EN_GPIO_Port GPIOC
 #define TorqueADC_Pin GPIO_PIN_0
 #define TorqueADC_GPIO_Port GPIOB
 #define LoadcellADC_Pin GPIO_PIN_1
 #define LoadcellADC_GPIO_Port GPIOB
-#define LORA_EN_Pin GPIO_PIN_10
-#define LORA_EN_GPIO_Port GPIOE
-#define LORA_RESET_Pin GPIO_PIN_11
-#define LORA_RESET_GPIO_Port GPIOE
-#define LORA_INT_Pin GPIO_PIN_12
-#define LORA_INT_GPIO_Port GPIOE
-#define LORA_INT_EXTI_IRQn EXTI15_10_IRQn
 #define mast_dir_Pin GPIO_PIN_10
 #define mast_dir_GPIO_Port GPIOB
 #define LED_WARNING_Pin GPIO_PIN_8
@@ -213,8 +202,6 @@ void SendPitchCmdCan(int nb_steps);
 #define PB1_Pin GPIO_PIN_15
 #define PB1_GPIO_Port GPIOD
 #define PB1_EXTI_IRQn EXTI15_10_IRQn
-#define SD_DETECT_Pin GPIO_PIN_12
-#define SD_DETECT_GPIO_Port GPIOC
 #define LED4_Pin GPIO_PIN_4
 #define LED4_GPIO_Port GPIOD
 #define LED3_Pin GPIO_PIN_5
@@ -223,6 +210,14 @@ void SendPitchCmdCan(int nb_steps);
 #define LED2_GPIO_Port GPIOD
 #define LED1_Pin GPIO_PIN_7
 #define LED1_GPIO_Port GPIOD
+#define UART_TX_TELEMETRY_Pin GPIO_PIN_6
+#define UART_TX_TELEMETRY_GPIO_Port GPIOB
+#define UART_RX_TELEMETRY_Pin GPIO_PIN_7
+#define UART_RX_TELEMETRY_GPIO_Port GPIOB
+#define UART_RX_METEO_Pin GPIO_PIN_8
+#define UART_RX_METEO_GPIO_Port GPIOB
+#define UART_TX_METEO_Pin GPIO_PIN_9
+#define UART_TX_METEO_GPIO_Port GPIOB
 #define Rotor_RPM_Pin GPIO_PIN_0
 #define Rotor_RPM_GPIO_Port GPIOE
 #define Rotor_RPM_EXTI_IRQn EXTI0_IRQn
