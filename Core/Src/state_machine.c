@@ -164,7 +164,7 @@ uint32_t DoStateAcquisition() {
 }
 
 uint32_t DoStateCheckROPS() {
-#define ROTOR_RPM_ROPS 1300
+#define ROTOR_RPM_ROPS 1800
 
 	if (sensor_data.rotor_rpm > ROTOR_RPM_ROPS || status_button_bdd == 1) {
 		rops_status = 1;
@@ -389,7 +389,7 @@ uint32_t DoStateCan() {
 			break;
 		}
 		case 1: {
-			float turb_cmd_value = update_test + status_button_hg;
+			float turb_cmd_value = sensor_data.wind_speed_avg + update_test + status_button_hg;
 			TransmitCAN(CAN_ID_MARIO_VAL_TURB_CMD, (uint8_t*) &turb_cmd_value, 4, 0);
 			can_tx_state++;
 			break;

@@ -580,6 +580,8 @@ static void MX_TIM4_Init(void)
   }
   /* USER CODE BEGIN TIM4_Init 2 */
 
+
+
   /* USER CODE END TIM4_Init 2 */
 
 }
@@ -978,7 +980,7 @@ HAL_StatusTypeDef TransmitCAN(uint32_t id, uint8_t *buf, uint8_t size,
 	}
 
 	// Successful transmit
-	HAL_GPIO_TogglePin(LED2_GPIO_Port, LED2_Pin);
+	//HAL_GPIO_TogglePin(LED2_GPIO_Port, LED2_Pin);
 
 	// Update the error led if had a successful can write
 	HAL_GPIO_WritePin(LED_WARNING_GPIO_Port, LED_WARNING_Pin, GPIO_PIN_RESET);

@@ -65,7 +65,7 @@ void ReadWeatherStation() {
 
 	__disable_irq();
 
-	index_buff = 0;
+
 	static uint8_t ws_message[128] = { 0 };
 	memcpy(ws_message, rx_buff, sizeof(ws_message));
 
@@ -129,37 +129,6 @@ void ReadWeatherStation() {
 
 			//HAL_GPIO_TogglePin(LED3_GPIO_Port, LED3_Pin);
 		}
-	}
-}
-
-
-// This callback is called by the HAL_UART_IRQHandler when the given number of bytes are received
-void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart) {
-	if (huart->Instance == UART5) {
-
-		HAL_GPIO_TogglePin(LED_ERROR_GPIO_Port, LED_ERROR_Pin);
-
-		rx_buff[index_buff++] = ws_rx_byte[0];
-		// rx_buff[index_buff++] = ws_rx_byte[1];
-
-		if (ws_rx_byte[0] == '\n') {
-			rx_buff[index_buff++] = '\0';
-			ws_receive_flag = 1;
-		}
-
-		// Restart interrupt for next byte
-		HAL_StatusTypeDef ret = HAL_UART_Receive_IT(&huart5, &ws_rx_byte[0], 1);
-		if (ret != HAL_OK) {
-			// Do something to reset the UART ?
-			// HAL_GPIO_WritePin(LED_WARNING_GPIO_Port, LED_WARNING_Pin, GPIO_PIN_SET);
-			if (ret == HAL_BUSY) {
-				// Already waiting for bytes ??
-
-			}
-		}
-
-		HAL_GPIO_WritePin(LED_ERROR_GPIO_Port, LED_ERROR_Pin, GPIO_PIN_RESET);
-		// HAL_GPIO_WritePin(LED_WARNING_GPIO_Port, LED_WARNING_Pin, GPIO_PIN_RESET);
 	}
 }
 
