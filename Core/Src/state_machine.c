@@ -7,7 +7,7 @@
 #include "state_machine.h"
 
 #include "stm32f4xx_it.h"
-
+#include "fatfs.h"
 #include "can.h"
 #include "chinook_can_ids.h"
 #include "main.h"
@@ -152,6 +152,88 @@ uint32_t DoStateAcquisition() {
 		//sensor_data.wheel_rpm = (((float)wheel_rpm_counter / 0.2f)/48.0f)*60.0f;
 
 		sensor_data.vehicle_speed = sensor_data.wheel_rpm * wheel_rpm_to_speed;
+		// SD Card telemetry logging
+		{
+		    UINT bw;
+		    char line[320];
+		    static char sd_filename[16] = "";  // Nom du fichier pour cette session
+
+		    // Helper macro: split a float into integer and 2-decimal parts
+		    #define SD_INT(v)  ((int)(v))
+		    #define SD_DEC(v)  ((int)(((v) >= 0 ? (v) - (int)(v) : (int)(v) - (v)) * 100))
+
+		    // Utilise les variables globales de fatfs.c (SDFatFS, SDFile)
+		    FRESULT res_mount = f_mount(&SDFatFS, SDPath, 1);
+		    if (res_mount != FR_OK) {
+		        // SD mount failed — LED2 ON to signal error
+		        HAL_GPIO_WritePin(LED2_GPIO_Port, LED2_Pin, GPIO_PIN_SET);
+		    } else {
+		        // Au premier appel, trouver le prochain numéro disponible
+		        if (sd_filename[0] == '\0') {
+		            for (int i = 1; i <= 9999; i++) {
+		                sprintf(sd_filename, "0:/data%d.csv", i);
+		                FRESULT res_check = f_open(&SDFile, sd_filename, FA_READ);
+		                if (res_check == FR_NO_FILE) {
+		                    break;  // Ce numéro est libre
+		                }
+		                f_close(&SDFile);
+		            }
+		        }
+
+		        FRESULT res_open = f_open(&SDFile, sd_filename, FA_OPEN_APPEND | FA_WRITE | FA_READ);
+		        if (res_open != FR_OK) {
+		            // Affiche le code d'erreur en binaire sur LED2 (bit0), LED3 (bit1), LED4 (bit2)
+		            HAL_GPIO_WritePin(LED2_GPIO_Port, LED2_Pin, (res_open & 0x01) ? GPIO_PIN_SET : GPIO_PIN_RESET);
+		            HAL_GPIO_WritePin(LED3_GPIO_Port, LED3_Pin, (res_open & 0x02) ? GPIO_PIN_SET : GPIO_PIN_RESET);
+		            HAL_GPIO_WritePin(LED4_GPIO_Port, LED4_Pin, (res_open & 0x04) ? GPIO_PIN_SET : GPIO_PIN_RESET);
+		        } else {
+		            // SD OK — LED2 OFF
+		            HAL_GPIO_WritePin(LED2_GPIO_Port, LED2_Pin, GPIO_PIN_RESET);
+
+		            // Write CSV header only if file is empty (first run)
+		            if (f_size(&SDFile) == 0) {
+		                const char *header = "temps_s,vitesse_vehicule,vitesse_vent,gear_ratio,pitch_degree,rotor_speed,TURB,CMD,WIND,Efficiency,TSR\r\n";
+		                f_write(&SDFile, header, strlen(header), &bw);
+		            }
+
+		            // Gather all values
+		            uint32_t temps_s   = HAL_GetTick() / 1000;
+		            float    v_spd     = sensor_data.vehicle_speed;
+		            float    w_spd     = sensor_data.wind_speed;
+		            uint32_t gear      = sensor_data.pitch_encoder;
+		            float    pitch     = sensor_data.pitch_angle;
+		            float    rotor     = sensor_data.rotor_rpm;
+		            uint32_t turb      = test_ws_receive_flag;
+		            float    cmd       = sensor_data.wind_speed_avg;
+		            float    wind_dir  = sensor_data.wind_direction;
+		            uint8_t  eff       = motor_mode_pitch;
+		            float    tsr       = CalcTSR();
+
+		            // Write data row (no %f — use integer math for floats)
+		            sprintf(line,
+		                "%lu,%d.%02d,%d.%02d,%lu,%d.%02d,%d.%02d,%lu,%d.%02d,%d.%02d,%d,%d.%02d\r\n",
+		                temps_s,
+		                SD_INT(v_spd),   SD_DEC(v_spd),
+		                SD_INT(w_spd),   SD_DEC(w_spd),
+		                gear,
+		                SD_INT(pitch),   SD_DEC(pitch),
+		                SD_INT(rotor),   SD_DEC(rotor),
+		                turb,
+		                SD_INT(cmd),     SD_DEC(cmd),
+		                SD_INT(wind_dir),SD_DEC(wind_dir),
+		                eff,
+		                SD_INT(tsr),     SD_DEC(tsr)
+		            );
+
+		            f_write(&SDFile, line, strlen(line), &bw);
+		            f_close(&SDFile);
+		        }
+		        f_mount(NULL, SDPath, 1);
+		    }
+
+		    #undef SD_INT
+		    #undef SD_DEC
+		}
 	}
 
 	if (flag_rotor_rpm_process) {
