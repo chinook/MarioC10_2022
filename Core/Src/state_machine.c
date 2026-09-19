@@ -473,8 +473,7 @@ uint32_t DoStateCan() {
 			break;
 		}
 		case 3: {
-			float speed_value = (float) sensor_data.wheel_rpm + update_test
-					+ status_button_hdd;
+			float speed_value = (float) sensor_data.vehicle_speed;
 			TransmitCAN(CAN_ID_MARIO_VAL_SPEED, (uint8_t*) &speed_value, 4, 0);
 			can_tx_state++;
 			break;
