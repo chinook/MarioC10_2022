@@ -134,24 +134,13 @@ uint32_t DoStateAcquisition() {
 	if (flag_wheel_rpm_process) {
 		flag_wheel_rpm_process = 0;
 
-//#define RPM_WHEEL_CNT_TIME_INVERSE 2.0f // Same as dividing by 500ms
-//#define WHEEL_CNT_PER_ROT 48.0f
-//		static const float wheel_counter_to_rpm_constant = (RPM_WHEEL_CNT_TIME_INVERSE / WHEEL_CNT_PER_ROT) * 60.0f;
-//
-//		sensor_data.wheel_rpm = (float)wheel_rpm_counter * wheel_counter_to_rpm_constant;
+		// Fonction pour aller chercher le wheel_rpm qui est essentielle pour CalcVehicleSpeed()
+		ReadWheelRPM();
 
-		//ReadWheelRPM();
+		// Fonction définie dans sensors.c pour calculer la vitesse du vehicule
+		CalcVehicleSpeed();
 
-		wheel_rpm_counter = 0;
 
-		// Compute vehicle speed
-#define WHEEL_DIAMETER 6.2f;
-		static const float wheel_rpm_to_speed = 3.1415926535f * WHEEL_DIAMETER
-		;
-
-		//sensor_data.wheel_rpm = (((float)wheel_rpm_counter / 0.2f)/48.0f)*60.0f;
-
-		sensor_data.vehicle_speed = sensor_data.wheel_rpm * wheel_rpm_to_speed;
 		// SD Card telemetry logging
 		{
 		    UINT bw;
@@ -519,8 +508,7 @@ uint32_t DoStateCan() {
 			break;
 		}
 		case 8: {
-			float pitch_value = (float) sensor_data.pitch_angle + update_test
-					+ status_button_bd;
+			float pitch_value = (float) sensor_data.pitch_angle + update_test + status_button_bd;
 			//float pitch_value = (float)((sensor_data.pitch_encoder * ABSOLUTE_ENCODER_RESOLUTION_ANGLE_12BITS) + 0) + update_test;
 			//float pitch_value = (float)sensor_data.pitch_encoder;
 			TransmitCAN(CAN_ID_MARIO_VAL_PITCH, (uint8_t*) &pitch_value, 4, 0);

@@ -236,8 +236,7 @@ void ReadWheelRPM() // 500ms interval
 {
 #define RPM_WHEEL_CNT_TIME_INVERSE 2.0f // Same as dividing by 500ms
 #define WHEEL_CNT_PER_ROT 48.0f
-	static const float wheel_counter_to_rpm_constant = (RPM_WHEEL_CNT_TIME_INVERSE
-			/ WHEEL_CNT_PER_ROT) * 60.0f;
+	static const float wheel_counter_to_rpm_constant = (RPM_WHEEL_CNT_TIME_INVERSE / WHEEL_CNT_PER_ROT) * 60.0f;
 
 	float wheel_rpm = (float) wheel_rpm_counter * wheel_counter_to_rpm_constant;
 
@@ -246,10 +245,20 @@ void ReadWheelRPM() // 500ms interval
 }
 
 void CalcVehicleSpeed() {
-#define WHEEL_DIAMETER 6.2f;
-	static const float wheel_rpm_to_speed = PI * WHEEL_DIAMETER
-	;
+#define WHEEL_DIAMETER 19.5f // Diamètre de la roue en pouces
 
+	// Calcul pour avoir le facteur qui transforme des RPM en km/h (on peut l'avoir en m/s si on veut)
+
+	// Étapes du calcul
+	// 1. PI * WHEEL_DIAMETER : circonférence de la roue (pouces/tour)
+	// 2. * 0.0254f           : conversion pouces -> metres (m/tour)
+	// 3. * 60.0f             : RPM -> tours/heures (m/h)
+	// 4. / 1000.0f           : metres -> kilometres (km/h)
+
+	// (OPTIONNEL) Pour avoir des m/s à la place : PI * WHEEL_DIAMETER * 0.0254 / 60.0
+	static const float wheel_rpm_to_speed = PI * WHEEL_DIAMETER * 0.0254f * 60.0f / 1000.0f;
+
+	// Liaison cinématique rotation → translation (roulement sans glissement)
 	sensor_data.vehicle_speed = sensor_data.wheel_rpm * wheel_rpm_to_speed;
 }
 
