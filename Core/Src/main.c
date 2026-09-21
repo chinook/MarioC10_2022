@@ -24,6 +24,7 @@
 /* USER CODE BEGIN Includes */
 #include "stm32f4xx_hal.h"
 
+#include "can.h"
 #include "chinook_can_ids.h"
 #include "state_machine.h"
 #include "sensors.h"

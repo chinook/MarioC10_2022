@@ -141,6 +141,8 @@ uint32_t DoStateAcquisition() {
 		// Fonction définie dans sensors.c pour calculer la vitesse du vehicule
 		CalcVehicleSpeed();
 
+		// Fonction définie dans sensors.c pour calculer à quelle gear on est rendue
+		CalcCurrentGear();
 
 		// SD Card telemetry logging
 		{
@@ -190,7 +192,7 @@ uint32_t DoStateAcquisition() {
 		            uint32_t temps_s   = HAL_GetTick() / 1000;
 		            float    v_spd     = sensor_data.vehicle_speed;
 		            float    w_spd     = sensor_data.wind_speed;
-		            uint32_t gear      = sensor_data.pitch_encoder;
+		            uint8_t  gear      = sensor_data.current_gear;
 		            float    pitch     = sensor_data.pitch_angle;
 		            float    rotor     = sensor_data.rotor_rpm;
 		            uint32_t turb      = test_ws_receive_flag;
@@ -201,7 +203,7 @@ uint32_t DoStateAcquisition() {
 
 		            // Write data row (no %f — use integer math for floats)
 		            sprintf(line,
-		                "%lu,%d.%02d,%d.%02d,%lu,%d.%02d,%d.%02d,%lu,%d.%02d,%d.%02d,%d,%d.%02d\r\n",
+		                "%lu,%d.%02d,%d.%02d,%u,%d.%02d,%d.%02d,%lu,%d.%02d,%d.%02d,%d,%d.%02d\r\n",
 		                temps_s,
 		                SD_INT(v_spd),   SD_DEC(v_spd),
 		                SD_INT(w_spd),   SD_DEC(w_spd),
@@ -486,8 +488,7 @@ uint32_t DoStateCan() {
 			break;
 		}
 		case 5: {
-			float gear_ratio_value = sensor_data.pitch_encoder + update_test
-					+ status_button_md;
+			float gear_ratio_value = sensor_data.current_gear;
 			TransmitCAN(CAN_ID_MARIO_VAL_GEAR_RATIO, (uint8_t*) &gear_ratio_value, 4, 0);
 			can_tx_state++;
 			break;

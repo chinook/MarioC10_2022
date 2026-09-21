@@ -101,6 +101,8 @@ typedef struct SensorData_{
 	float mast_angle;
 	float vehicle_speed;
 	float tsr;
+	float gear_ratio;
+	uint8_t current_gear;
 }SensorData;
 
 extern SensorData sensor_data;

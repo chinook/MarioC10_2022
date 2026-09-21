@@ -272,6 +272,34 @@ void CalcVehicleSpeed() {
 	sensor_data.vehicle_speed = sensor_data.wheel_rpm * wheel_rpm_to_speed;
 }
 
+
+// Ratios de la transmission NuVinci (output/input) (valeurs du PFE sur la transmission)
+static const float GEAR_RATIOS[14] = {0.1116f, 0.1264f, 0.1440f, 0.1636f, 0.1856f, 0.2112f, 0.2400f, 0.2728f, 0.3096f, 0.3524f, 0.4000f, 0.4540f, 0.5168f, 0.5868f };
+
+// Fonction pour calculer on est à quelle gear
+void CalcCurrentGear(){
+    if(sensor_data.wheel_rpm > 0.1f && sensor_data.rotor_rpm > 0.1f){
+        sensor_data.gear_ratio = sensor_data.wheel_rpm / sensor_data.rotor_rpm;
+
+        // Trouver le gear le plus proche
+        uint8_t closest = 0;
+        float min_diff = fabsf(sensor_data.gear_ratio - GEAR_RATIOS[0]);
+        for(int i = 1; i < 14; i++){
+            float diff = fabsf(sensor_data.gear_ratio - GEAR_RATIOS[i]);
+            if(diff < min_diff){
+                min_diff = diff;
+                closest = i;
+            }
+        }
+        sensor_data.current_gear = closest + 1;  // gear 1 à 14
+    } else {
+        sensor_data.gear_ratio = 0.0f;
+        sensor_data.current_gear = 0;  // 0 = indéterminé
+    }
+}
+
+
+
 void ReadRotorRPM() // 100 ms interval
 {
 	// Process rpm counters
