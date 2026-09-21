@@ -57,6 +57,7 @@ uint32_t test_ws_receive_flag = 0;
 #define END_OF_MOY_DIRECTION 50
 uint16_t moy_direction_ctu = 0;
 uint8_t new_moy_wind_direction = 0;
+
 void ReadWeatherStation() {
 	if (!ws_receive_flag)
 		return;
@@ -233,57 +234,39 @@ void ReadTorqueLoadcellADC_IT() {
 	}
 }
 
-void ReadWheelRPM() // 500ms interval
-{
-#define RPM_WHEEL_CNT_TIME_INVERSE 2.0f // Same as dividing by 500ms
-<<<<<<< Updated upstream
-#define WHEEL_CNT_PER_ROT 48.0f
-	static const float wheel_counter_to_rpm_constant = (RPM_WHEEL_CNT_TIME_INVERSE / WHEEL_CNT_PER_ROT) * 60.0f;
-=======
-#define WHEEL_CNT_PER_ROT 64.0f
->>>>>>> Stashed changes
+void ReadWheelRPM() {  // 500ms interval
 
-    static const float wheel_counter_to_rpm_constant =
-        (RPM_WHEEL_CNT_TIME_INVERSE / WHEEL_CNT_PER_ROT) * 60.0f;
+#define RPM_WHEEL_CNT_TIME_INVERSE 2.0f // Same as dividing by 500ms
+#define WHEEL_CNT_PER_ROT 64.0f
+
+	static const float wheel_counter_to_rpm_constant = (RPM_WHEEL_CNT_TIME_INVERSE / WHEEL_CNT_PER_ROT) * 60.0f;
 
     uint32_t pulses = wheel_rpm_counter;
-
     debug_wheel_pulses_last = pulses;
 
-    if (pulses > debug_wheel_pulses_max)
-    {
+    if (pulses > debug_wheel_pulses_max) {
         debug_wheel_pulses_max = pulses;
     }
 
-    float wheel_rpm =
-        (float)pulses * wheel_counter_to_rpm_constant;
-
+    float wheel_rpm = (float)pulses * wheel_counter_to_rpm_constant;
     wheel_rpm_counter = 0;
 
     sensor_data.wheel_rpm = wheel_rpm;
 }
 
 void CalcVehicleSpeed() {
-<<<<<<< Updated upstream
-#define WHEEL_DIAMETER 19.5f // Diamètre de la roue en pouces
-=======
-#define WHEEL_DIAMETER 18.625f // Diamètre de la roue en pouces
->>>>>>> Stashed changes
 
-	// Calcul pour avoir le facteur qui transforme des RPM en km/h (on peut l'avoir en m/s si on veut)
+#define WHEEL_DIAMETER 18.625f // Diamètre de la roue en pouces
+
+	// Calcul pour avoir le facteur qui transforme des RPM en m/s
 
 	// Étapes du calcul
 	// 1. PI * WHEEL_DIAMETER : circonférence de la roue (pouces/tour)
 	// 2. * 0.0254f           : conversion pouces -> metres (m/tour)
-	// 3. * 60.0f             : RPM -> tours/heures (m/h)
-	// 4. / 1000.0f           : metres -> kilometres (km/h)
+	// 3. / 60.0f             : RPM -> metres/secondes (m/s)
 
-	// (OPTIONNEL) Pour avoir des m/s à la place : PI * WHEEL_DIAMETER * 0.0254 / 60.0
-<<<<<<< Updated upstream
-	static const float wheel_rpm_to_speed = PI * WHEEL_DIAMETER * 0.0254f * 60.0f / 1000.0f;
-=======
+	// (OPTIONNEL) Pour avoir des km/h à la place : PI * WHEEL_DIAMETER * 0.0254f * 60.0f / 1000.0f;
 	static const float wheel_rpm_to_speed = PI * WHEEL_DIAMETER * 0.0254f / 60.0f;
->>>>>>> Stashed changes
 
 	// Liaison cinématique rotation → translation (roulement sans glissement)
 	sensor_data.vehicle_speed = sensor_data.wheel_rpm * wheel_rpm_to_speed;
