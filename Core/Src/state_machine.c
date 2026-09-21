@@ -135,7 +135,11 @@ uint32_t DoStateAcquisition() {
 		flag_wheel_rpm_process = 0;
 
 		// Fonction pour aller chercher le wheel_rpm qui est essentielle pour CalcVehicleSpeed()
+<<<<<<< Updated upstream
 		ReadWheelRPM();
+=======
+		// ReadWheelRPM();
+>>>>>>> Stashed changes
 
 		// Fonction définie dans sensors.c pour calculer la vitesse du vehicule
 		CalcVehicleSpeed();

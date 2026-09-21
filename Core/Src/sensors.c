@@ -21,7 +21,8 @@ uint8_t pb1_update = 0;
 uint8_t pb2_update = 0;
 
 
-
+volatile uint32_t debug_wheel_pulses_last = 0;
+volatile uint32_t debug_wheel_pulses_max = 0;
 
 //ADC loadcell torque flag
 uint8_t flag_IT_adc1_loadcell_torque = 0;
@@ -235,17 +236,39 @@ void ReadTorqueLoadcellADC_IT() {
 void ReadWheelRPM() // 500ms interval
 {
 #define RPM_WHEEL_CNT_TIME_INVERSE 2.0f // Same as dividing by 500ms
+<<<<<<< Updated upstream
 #define WHEEL_CNT_PER_ROT 48.0f
 	static const float wheel_counter_to_rpm_constant = (RPM_WHEEL_CNT_TIME_INVERSE / WHEEL_CNT_PER_ROT) * 60.0f;
+=======
+#define WHEEL_CNT_PER_ROT 64.0f
+>>>>>>> Stashed changes
 
-	float wheel_rpm = (float) wheel_rpm_counter * wheel_counter_to_rpm_constant;
+    static const float wheel_counter_to_rpm_constant =
+        (RPM_WHEEL_CNT_TIME_INVERSE / WHEEL_CNT_PER_ROT) * 60.0f;
 
-	wheel_rpm_counter = 0;
-	sensor_data.wheel_rpm = wheel_rpm;
+    uint32_t pulses = wheel_rpm_counter;
+
+    debug_wheel_pulses_last = pulses;
+
+    if (pulses > debug_wheel_pulses_max)
+    {
+        debug_wheel_pulses_max = pulses;
+    }
+
+    float wheel_rpm =
+        (float)pulses * wheel_counter_to_rpm_constant;
+
+    wheel_rpm_counter = 0;
+
+    sensor_data.wheel_rpm = wheel_rpm;
 }
 
 void CalcVehicleSpeed() {
+<<<<<<< Updated upstream
 #define WHEEL_DIAMETER 19.5f // Diamètre de la roue en pouces
+=======
+#define WHEEL_DIAMETER 18.625f // Diamètre de la roue en pouces
+>>>>>>> Stashed changes
 
 	// Calcul pour avoir le facteur qui transforme des RPM en km/h (on peut l'avoir en m/s si on veut)
 
@@ -256,7 +279,11 @@ void CalcVehicleSpeed() {
 	// 4. / 1000.0f           : metres -> kilometres (km/h)
 
 	// (OPTIONNEL) Pour avoir des m/s à la place : PI * WHEEL_DIAMETER * 0.0254 / 60.0
+<<<<<<< Updated upstream
 	static const float wheel_rpm_to_speed = PI * WHEEL_DIAMETER * 0.0254f * 60.0f / 1000.0f;
+=======
+	static const float wheel_rpm_to_speed = PI * WHEEL_DIAMETER * 0.0254f / 60.0f;
+>>>>>>> Stashed changes
 
 	// Liaison cinématique rotation → translation (roulement sans glissement)
 	sensor_data.vehicle_speed = sensor_data.wheel_rpm * wheel_rpm_to_speed;
