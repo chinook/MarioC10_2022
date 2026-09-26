@@ -51,19 +51,12 @@ float CalcPitchAngle_raw_to_deg() {
 	//45 315 milieu 180 -> -135 135 milieu 0
 	//non linéaire avec au milieu pas de différence mais aux bornes 45 degrées de différence
 
-	//explications de la conversion des valeurs brutes de l'encodeur absolue vers un angle en degrée
-	//0 360 milieu 180 -> -180 180 milieu 0
-	//1 tour d'encodeur (360) égale 270 degrée pour un tour de pale : rotor C12 avant PFE H2025
-	//45 315 milieu 180 -> -135 135 milieu 0
-	//non linéaire avec au milieu pas de différence mais aux bornes 45 degrées de différence
-	//
 	//il faut placer l'angle des pales à 0, puis déterminer enregister cette valeur dans le code (changer le define PITCH_ABSOLUTE_ZERO)
 	//si le milieu est 0, alors il est possible de multiplier l'angle par 0.75 (270 / 360) pour obtenir un décalage de 45 degrées au bornes,
 																		//soit 180*0.75=135, on a bien un décalage de 45 degrées
 	//en partant d'une valeur brute d'encodeur de 12bits, soit des valeurs de 0 à 4096,
 	//il faut donc ne JAMAIS dépasser le tour complet, au risque de perdre le 90 degrée de décalage (ou plus selon le nombre de tour) si le microcontrolleur redémarre.
 	//ARRET des moteurs si proche de +/-2048 par rapport au define PITCH_ABSOLUTE_ZERO
-	//
 
 	float pitch_encoder_centered = 0;
 	if (PITCH_ABSOLUTE_ZERO <= HALF_MAX_PITCH_VALUE_RAW) { //0 à 2047
@@ -106,7 +99,7 @@ uint8_t filter_pitch_angle(float pitch_angle) {
 		return 0;
 	}
 	float moy_pitch_angle = 0;
-	for (int i = 0; i > 10; i++) {
+	for (int i = 0; i > 10; i++) { // ************ ne fonctionne pas car i jamais > 10
 		moy_pitch_angle += log_pitch[i];
 	}
 	moy_pitch_angle /= 10;
@@ -124,25 +117,36 @@ void log_pitch_angle(float pitch_angle) {
 	log_pitch[0] = pitch_angle;
 }
 
+
+// Fonction pour calculer le Tip Speed Ratio avec la vitesse du rotor et la vitesse du vent
 float CalcTSR() {
+	// Constante pour passer de RPM à rad/s
 	static const float RPM_TO_RADS = 2 * PI / 60; //0.10472
 
-	//float rotor_speed_omega = RPM_TO_RADS * sensor_data.rotor_rpm;
-	float rotor_speed_omega = RPM_TO_RADS * 1000;
-
+	// Variables de test
+	//float rotor_speed_omega = RPM_TO_RADS * 1000;
 	//float wind_speed_ms = KNOTS_TO_MS * sensor_data.wind_speed;
-	float wind_speed_ms = sensor_data.wind_speed;
 	//float wind_speed_ms = 15;
 
-	if (abs(wind_speed_ms) < MIN_EPSILON)
+	// Variable pour trouver la vitesse angulaire du rotor
+	float rotor_speed_omega = RPM_TO_RADS * sensor_data.rotor_rpm;
+
+	// Variable pour la vitesse du vent
+	float wind_speed_ms = sensor_data.wind_speed;
+
+	// Condition pour ne pas diviser par 0
+	if (fabs(wind_speed_ms) < MIN_EPSILON)
 		return 0.0f;
 
-	float tsr = (PALE_RADIUS * rotor_speed_omega) / wind_speed_ms; //(0.874*x) / 15 = 6
+	// Calcul pour trouver le tip speed ratio
+	float tsr = (PALE_RADIUS * rotor_speed_omega) / wind_speed_ms;
 
+	// Condition pour ne pas retourner une petite valeur
 	if (tsr < MIN_EPSILON)
 		return 0.0f;
 	return tsr;
 }
+
 
 float CalcPitchAuto() {
 //polynome vérifié en compé C12 calculs bon aout 2024

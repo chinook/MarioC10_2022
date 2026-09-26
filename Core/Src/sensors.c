@@ -58,6 +58,8 @@ uint32_t test_ws_receive_flag = 0;
 uint16_t moy_direction_ctu = 0;
 uint8_t new_moy_wind_direction = 0;
 
+
+// Fonction pour lire le vitesse et la direction du vent avec la sonde météo
 void ReadWeatherStation() {
 	if (!ws_receive_flag)
 		return;
@@ -254,6 +256,8 @@ void ReadWheelRPM() {  // 500ms interval
     sensor_data.wheel_rpm = wheel_rpm;
 }
 
+
+// Fonction pour calculer la vitesse du véhicule
 void CalcVehicleSpeed() {
 
 #define WHEEL_DIAMETER 18.625f // Diamètre de la roue en pouces
@@ -300,6 +304,20 @@ void CalcCurrentGear(){
 
 
 
+// Fonction pour calculer l'efficacité du véhicule (intake vent VS outtake véhicule)
+void CalcEfficiency(void) {
+
+	// Condition pour ne pas diviser par 0
+    if (sensor_data.wind_speed < 0.1f) {
+        sensor_data.efficiency = 0.0f;
+    } else { // Calculer de l'efficacité vitesse du vehicule divisé par la vitesse du vent (en pourcentage)
+        sensor_data.efficiency = (sensor_data.vehicle_speed / sensor_data.wind_speed) * 100.0f;
+    }
+}
+
+
+
+// Fonction pour lire la vitesse du rotor
 void ReadRotorRPM() // 100 ms interval
 {
 	// Process rpm counters
@@ -330,6 +348,12 @@ void ReadRotorRPM() // 100 ms interval
 	sensor_data.rotor_rpm = rotor_rpm;
 }
 
+#define log_encoder_raw_data_size 10
+
+
+// Calcule la MOYENNE d'un tableau de valeurs entières (uint32_t).
+// Utilise un accumulateur en double pour éviter de perdre de la précision.
+// data = tableau de valeurs, size = nombre de valeurs.
 double calculate_moy_uint32(uint32_t *data, uint32_t size) {
 	double sum = 0;
 	for (int i = 0; i < size; i++) {
@@ -338,6 +362,8 @@ double calculate_moy_uint32(uint32_t *data, uint32_t size) {
 	return sum / size;
 }
 
+// Calcule l'ÉCART-TYPE d'un tableau de valeurs.
+// moy = moyenne déjà calculée (par calculate_moy_uint32), data = tableau, size = nombre de valeurs.
 double calculate_std_dev_uint32(double moy, uint32_t *data, uint32_t size) {
 	double sum = 0;
 	for (int i = 0; i < size; i++) {
@@ -346,12 +372,19 @@ double calculate_std_dev_uint32(double moy, uint32_t *data, uint32_t size) {
 	return sqrt(sum / size); //double std_dev
 }
 
+// Fonction de comparaison utilisée par qsort() pour trier deux éléments.
+// Retourne un nombre < 0 si a < b, 0 si égaux, > 0 si a > b.
 int compare(const void *a, const void *b) {
-	return (*(int*) a - *(int*) b);
+	uint32_t x = *(const uint32_t*) a;
+	uint32_t y = *(const uint32_t*) b;
+	if (x < y) return -1;
+	if (x > y) return 1;
+	return 0;
 }
 
+// Calcule la MÉDIANE d'un tableau de valeurs. Utile pour filtrer le bruit de l'encodeur.
 double calculate_median_uint32(uint32_t *data, uint32_t size) {
-	uint32_t data_temp[10] = { 0 };
+	uint32_t data_temp[log_encoder_raw_data_size] = { 0 };
 
 	for (int i = 0; i < size; i++) {
 		data_temp[i] = data[i];
@@ -368,7 +401,6 @@ double calculate_median_uint32(uint32_t *data, uint32_t size) {
 	}
 }
 
-#define log_encoder_raw_data_size 10
 uint32_t log_encoder_raw_data[log_encoder_raw_data_size] = { 0 };
 uint32_t log_encoder_raw_data_filtered[log_encoder_raw_data_size] = { 0 };
 
@@ -399,6 +431,7 @@ uint32_t verify_new_encoder_raw_data(uint32_t encoder_raw_data) {
 	return log_encoder_raw_data_filtered[0];
 }
 
+// Fonction pour lire le encoder pour l'angle des pales
 #define PITCH_ENCODER_BITS 12
 uint32_t ReadPitchEncoder() {
 	HAL_GPIO_WritePin(Mast_Clock_GPIO_Port, Mast_Clock_Pin, GPIO_PIN_RESET);
@@ -558,7 +591,7 @@ uint32_t ReadPitchEncoder() {
 
  */
 
-/*
+
 uint32_t ReadMastEncoder() {
 
 	uint32_t mast_data = 0;
@@ -582,7 +615,7 @@ uint32_t ReadMastEncoder() {
 	//return 0;
 }
 
-*/
+
 /*
  void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin) {
  if (GPIO_Pin == GPIO_PIN_14) // PD_14 -- PB2

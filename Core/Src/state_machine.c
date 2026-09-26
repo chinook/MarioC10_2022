@@ -144,6 +144,10 @@ uint32_t DoStateAcquisition() {
 		// Fonction définie dans sensors.c pour calculer à quelle gear on est rendue
 		CalcCurrentGear();
 
+		// Fonction définie dans sensors.c pour calculer l'efficacité du véhicule
+		CalcEfficiency();
+
+
 		// SD Card telemetry logging
 		{
 		    UINT bw;
@@ -198,12 +202,12 @@ uint32_t DoStateAcquisition() {
 		            uint32_t turb      = test_ws_receive_flag;
 		            float    cmd       = sensor_data.wind_speed_avg;
 		            float    wind_dir  = sensor_data.wind_direction;
-		            uint8_t  eff       = motor_mode_pitch;
+		            float    eff       = sensor_data.efficiency;
 		            float    tsr       = CalcTSR();
 
 		            // Write data row (no %f — use integer math for floats)
 		            sprintf(line,
-		                "%lu,%d.%02d,%d.%02d,%u,%d.%02d,%d.%02d,%lu,%d.%02d,%d.%02d,%d,%d.%02d\r\n",
+		                "%lu,%d.%02d,%d.%02d,%u,%d.%02d,%d.%02d,%lu,%d.%02d,%d.%02d,%d.%02d,%d.%02d\r\n",
 		                temps_s,
 		                SD_INT(v_spd),   SD_DEC(v_spd),
 		                SD_INT(w_spd),   SD_DEC(w_spd),
@@ -213,7 +217,7 @@ uint32_t DoStateAcquisition() {
 		                turb,
 		                SD_INT(cmd),     SD_DEC(cmd),
 		                SD_INT(wind_dir),SD_DEC(wind_dir),
-		                eff,
+		                SD_INT(eff),     SD_DEC(eff),
 		                SD_INT(tsr),     SD_DEC(tsr)
 		            );
 
@@ -456,113 +460,110 @@ uint32_t DoStateCan() {
 
 		static uint32_t can_tx_state = 0;
 		switch (can_tx_state) {
-		case 0: {
-			float turb_dir_value = test_ws_receive_flag + update_test + status_button_hgg;
-			TransmitCAN(CAN_ID_MARIO_VAL_TURB_DIR, (uint8_t*) &turb_dir_value, 4, 0);
-			can_tx_state++;
-			break;
-		}
-		case 1: {
-			float turb_cmd_value = sensor_data.wind_speed_avg + update_test + status_button_hg;
-			TransmitCAN(CAN_ID_MARIO_VAL_TURB_CMD, (uint8_t*) &turb_cmd_value, 4, 0);
-			can_tx_state++;
-			break;
-		}
-		case 2: {
-			float wind_dir_value = (float) sensor_data.wind_direction + update_test
-					+ status_button_hd;
-			TransmitCAN(CAN_ID_MARIO_VAL_WIND_DIR, (uint8_t*) &wind_dir_value, 4, 0);
-			can_tx_state++;
-			break;
-		}
-		case 3: {
-			float speed_value = (float) sensor_data.vehicle_speed;
-			TransmitCAN(CAN_ID_MARIO_VAL_SPEED, (uint8_t*) &speed_value, 4, 0);
-			can_tx_state++;
-			break;
-		}
-		case 4: {
-			float tsr_value = CalcTSR() + update_test + status_button_mg;
-			TransmitCAN(CAN_ID_MARIO_VAL_TSR, (uint8_t*) &tsr_value, 4, 0);
-			can_tx_state++;
-			break;
-		}
-		case 5: {
-			float gear_ratio_value = sensor_data.current_gear;
-			TransmitCAN(CAN_ID_MARIO_VAL_GEAR_RATIO, (uint8_t*) &gear_ratio_value, 4, 0);
-			can_tx_state++;
-			break;
-		}
-		case 6: {
-			float rotor_speed_value = (float) sensor_data.rotor_rpm + update_test
-					+ status_button_bgg;
-			TransmitCAN(CAN_ID_MARIO_VAL_ROTOR_SPEED, (uint8_t*) &rotor_speed_value, 4,
-					0);
-			can_tx_state++;
-			break;
-		}
-		case 7: {
-			float rotor_rops_cmd_value = update_test + ROTOR_RPM_ROPS + status_button_bg;
-			TransmitCAN(CAN_ID_MARIO_VAL_ROTOR_ROPS_CMD, (uint8_t*) &rotor_rops_cmd_value,
-					4, 0);
-			can_tx_state++;
-			break;
-		}
-		case 8: {
-			float pitch_value = (float) sensor_data.pitch_angle + update_test + status_button_bd;
-			//float pitch_value = (float)((sensor_data.pitch_encoder * ABSOLUTE_ENCODER_RESOLUTION_ANGLE_12BITS) + 0) + update_test;
-			//float pitch_value = (float)sensor_data.pitch_encoder;
-			TransmitCAN(CAN_ID_MARIO_VAL_PITCH, (uint8_t*) &pitch_value, 4, 0);
-			can_tx_state++;
-			break;
-		}
-		case 9: {
-			float efficiency_value = update_test + motor_mode_pitch + status_button_bdd;
-			TransmitCAN(CAN_ID_MARIO_VAL_EFFICIENCY, (uint8_t*) &efficiency_value, 4, 0);
-			can_tx_state++;
-			break;
-		}
-		case 10: {
-			float wind_speed_value = (float) sensor_data.wind_speed + update_test;
-			TransmitCAN(CAN_ID_MARIO_VAL_WIND_SPEED, (uint8_t*) &wind_speed_value, 4, 0);
-			can_tx_state++;
-			break;
-		}
-		case 11: {
-			float pitch_cmd_value = pitch_auto_target + update_test;
-			TransmitCAN(CAN_ID_MARIO_VAL_PITCH_CMD, (uint8_t*) &pitch_cmd_value, 4, 0);
-			can_tx_state++;
-			break;
-		}
-		case 12: {
-			float debug_log_1_value = (motor_mode_pitch * 100000) + update_test
-					+ sensor_data.torque; //status_button_bgg + motor_mode_pitch +
-			TransmitCAN(CAN_ID_MARIO_VAL_DEBUG_LOG_1, (uint8_t*) &debug_log_1_value, 4,
-					0);
-			can_tx_state++;
-			break;
-		}
-		case 13: {
-			float debug_log_2_value = (motor_mode_mast * 100000) + update_test
-					+ sensor_data.loadcell; //status_button_bg + motor_direction_pitch +
-			TransmitCAN(CAN_ID_MARIO_VAL_DEBUG_LOG_2, (uint8_t*) &debug_log_2_value, 4,
-					0);
-			can_tx_state++;
-			break;
-		}
-		case 14: {
-			float debug_log_3_value = (rops_status * 777) + update_test + motor_speed_pitch;
-			TransmitCAN(CAN_ID_MARIO_VAL_DEBUG_LOG_3, (uint8_t*) &debug_log_3_value, 4,
-					0);
-			can_tx_state++;
-			break;
-		}
-		case 15: {
-			float debug_log_4_value = status_button_debug + update_test;
-			TransmitCAN(CAN_ID_MARIO_VAL_DEBUG_LOG_4, (uint8_t*) &debug_log_4_value, 4,
-					0);
-			can_tx_state = 0;
-			break;
+			// ===== DONE =====
+			case 0: {
+				float wind_dir_value = (float) sensor_data.wind_direction; // DONE
+				TransmitCAN(CAN_ID_MARIO_VAL_WIND_DIR, (uint8_t*) &wind_dir_value, 4, 0);
+				can_tx_state++;
+				break;
+			}
+			case 1: {
+				float speed_value = (float) sensor_data.vehicle_speed; // DONE
+				TransmitCAN(CAN_ID_MARIO_VAL_SPEED, (uint8_t*) &speed_value, 4, 0);
+				can_tx_state++;
+				break;
+			}
+			case 2: {
+				float tsr_value = CalcTSR(); // DONE
+				TransmitCAN(CAN_ID_MARIO_VAL_TSR, (uint8_t*) &tsr_value, 4, 0);
+				can_tx_state++;
+				break;
+			}
+			case 3: {
+				float efficiency_value = sensor_data.efficiency; // DONE
+				TransmitCAN(CAN_ID_MARIO_VAL_EFFICIENCY, (uint8_t*) &efficiency_value, 4, 0);
+				can_tx_state++;
+				break;
+			}
+			case 4: {
+				float wind_speed_value = (float) sensor_data.wind_speed; // DONE
+				TransmitCAN(CAN_ID_MARIO_VAL_WIND_SPEED, (uint8_t*) &wind_speed_value, 4, 0);
+				can_tx_state++;
+				break;
+			}
+
+			// ===== DONE — mais à valider avec le nouveau rotor =====
+			case 5: {
+				float gear_ratio_value = sensor_data.current_gear; // DONE, mais voir nouvelles valeurs du rotor
+				TransmitCAN(CAN_ID_MARIO_VAL_GEAR_RATIO, (uint8_t*) &gear_ratio_value, 4, 0);
+				can_tx_state++;
+				break;
+			}
+			case 6: {
+				float rotor_speed_value = (float) sensor_data.rotor_rpm; // DONE, mais voir nouveau rotor
+				TransmitCAN(CAN_ID_MARIO_VAL_ROTOR_SPEED, (uint8_t*) &rotor_speed_value, 4, 0);
+				can_tx_state++;
+				break;
+			}
+			case 7: {
+				float pitch_value = (float) sensor_data.pitch_angle; // DONE, mais voir le nouveau rotor
+				TransmitCAN(CAN_ID_MARIO_VAL_PITCH, (uint8_t*) &pitch_value, 4, 0);
+				can_tx_state++;
+				break;
+			}
+
+			// ===== À CHANGER =====
+			case 8: {
+				float pitch_cmd_value = CalcPitchAuto(); // L'angle de pale idéal d'après le polynome (à changer)
+				TransmitCAN(CAN_ID_MARIO_VAL_PITCH_CMD, (uint8_t*) &pitch_cmd_value, 4, 0);
+				can_tx_state++;
+				break;
+			}
+
+			case 9: {
+				float turb_dir_value = test_ws_receive_flag; // À CHANGER POUR mast_angle
+				TransmitCAN(CAN_ID_MARIO_VAL_TURB_DIR, (uint8_t*) &turb_dir_value, 4, 0);
+				can_tx_state++;
+				break;
+			}
+
+			// ===== À ENLEVER =====
+			case 10: {
+				float turb_cmd_value = sensor_data.wind_speed_avg + update_test + status_button_hg; // À ENLEVER
+				TransmitCAN(CAN_ID_MARIO_VAL_TURB_CMD, (uint8_t*) &turb_cmd_value, 4, 0);
+				can_tx_state++;
+				break;
+			}
+			case 11: {
+				float rotor_rops_cmd_value = ROTOR_RPM_ROPS; // À ENLEVER
+				TransmitCAN(CAN_ID_MARIO_VAL_ROTOR_ROPS_CMD, (uint8_t*) &rotor_rops_cmd_value, 4, 0);
+				can_tx_state++;
+				break;
+			}
+			case 12: {
+				float debug_log_1_value = (motor_mode_pitch * 100000) + update_test + sensor_data.torque; // À ENLEVER
+				TransmitCAN(CAN_ID_MARIO_VAL_DEBUG_LOG_1, (uint8_t*) &debug_log_1_value, 4, 0);
+				can_tx_state++;
+				break;
+			}
+			case 13: {
+				float debug_log_2_value = (motor_mode_mast * 100000) + update_test + sensor_data.loadcell; // À ENLEVER
+				TransmitCAN(CAN_ID_MARIO_VAL_DEBUG_LOG_2, (uint8_t*) &debug_log_2_value, 4, 0);
+				can_tx_state++;
+				break;
+			}
+			case 14: {
+				float debug_log_3_value = (rops_status * 777) + update_test + motor_speed_pitch; // À ENLEVER
+				TransmitCAN(CAN_ID_MARIO_VAL_DEBUG_LOG_3, (uint8_t*) &debug_log_3_value, 4, 0);
+				can_tx_state++;
+				break;
+			}
+			case 15: {
+				float debug_log_4_value = status_button_debug + update_test; // À ENLEVER
+				TransmitCAN(CAN_ID_MARIO_VAL_DEBUG_LOG_4, (uint8_t*) &debug_log_4_value, 4, 0);
+				can_tx_state = 0;
+				break;
+			}
 		}
 		default:
 			// Unknown CAN ID

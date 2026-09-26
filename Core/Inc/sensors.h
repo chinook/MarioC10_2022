@@ -24,6 +24,7 @@ void ReadTorqueLoadcellADC_IT();
 void ReadWheelRPM();
 void CalcVehicleSpeed();
 void CalcCurrentGear();
+void CalcEfficiency();
 
 void ReadRotorRPM();
 

@@ -102,6 +102,7 @@ typedef struct SensorData_{
 	float vehicle_speed;
 	float tsr;
 	float gear_ratio;
+	float efficiency;
 	uint8_t current_gear;
 }SensorData;
 
