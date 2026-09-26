@@ -3,6 +3,9 @@
  *
  *  Created on: Aug 17, 2025
  *      Author: thoma
+ *
+ *  Edited on : 26 septembre 2026
+ *  	Editor: Simon B.
  */
 
 #include "sensors.h"
