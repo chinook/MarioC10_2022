@@ -15,31 +15,28 @@
 #include <stdlib.h>
 #include <math.h>
 
-//define PITCH_ENCODER_BITS 17
-//#define PITCH_ENCODER_BITS 24
-
+// Boutons-poussoirs de la carte (mis à jour par les interruptions, déclarés extern dans main.h)
 uint8_t pb1_value = 0;
 uint8_t pb2_value = 0;
 uint8_t pb1_update = 0;
 uint8_t pb2_update = 0;
 
-
+// Debug : nombre d'impulsions de roue de la dernière période et maximum observé
 volatile uint32_t debug_wheel_pulses_last = 0;
 volatile uint32_t debug_wheel_pulses_max = 0;
 
-//ADC loadcell torque flag
+// Drapeau levé par l'interruption ADC quand une conversion couple/charge est prête
 uint8_t flag_IT_adc1_loadcell_torque = 0;
 
-// RPM counters
-
+// Compteurs d'impulsions incrémentés par les interruptions EXTI (roue et rotor)
 uint32_t wheel_rpm_counter = 0;
 uint32_t rotor_rpm_counter = 0;
 
-float wind_dirs[4];
+// Buffer circulaire des 4 dernières vitesses de vent (pour la moyenne glissante)
 float wind_speeds[4];
-int wind_dir_last_idx = 0;
 int wind_speed_last_idx = 0;
 
+// Convertit une direction de vent de [0..360°] vers [-180..180°]
 float wind_direction_n180_0_p180(float wind_direction_0_360) {
 	float wind_direction_corrected = wind_direction_0_360;
 
@@ -49,20 +46,19 @@ float wind_direction_n180_0_p180(float wind_direction_0_360) {
 	return wind_direction_corrected;
 }
 
-
-// Weather station
+// Buffer de réception UART de la station météo (rempli octet par octet par l'interruption)
 uint8_t rx_buff[128];
 uint8_t index_buff;
 uint8_t ws_receive_flag;
 uint8_t ws_rx_byte[4];
 
+// Compteur de debug : nombre de trames météo reçues
 uint32_t test_ws_receive_flag = 0;
-#define END_OF_MOY_DIRECTION 50
-uint16_t moy_direction_ctu = 0;
-uint8_t new_moy_wind_direction = 0;
 
+#define KNOTS_TO_MS 0.514444f   // conversion noeuds -> m/s
+#define WIND_DIR_AVG_LEN 20     // taille de la moyenne glissante de direction du vent
 
-// Fonction pour lire le vitesse et la direction du vent avec la sonde météo
+// Lit la vitesse et la direction du vent depuis la station météo (trame NMEA "$IIMWV" sur UART5)
 void ReadWeatherStation() {
 	if (!ws_receive_flag)
 		return;
@@ -70,140 +66,76 @@ void ReadWeatherStation() {
 
 	static char frame_begin[] = "$IIMWV";
 
+	// Copie protégée du buffer de réception (l'interruption peut le modifier)
 	__disable_irq();
-
-
 	static uint8_t ws_message[128] = { 0 };
 	memcpy(ws_message, rx_buff, sizeof(ws_message));
-
 	__enable_irq();
 
-	// HAL_UART_Transmit(&huart2, ws_message, strlen(ws_message), HAL_MAX_DELAY);
+	if (strlen((char*) ws_message) < 6)
+		return;
 
-	if (strlen((char*) ws_message) >= 6) {
-		char begin_frame[7] = { 0 };
-		memcpy(begin_frame, ws_message, 6);
-		if (0 == strcmp(begin_frame, frame_begin)) {
-			char wind_dir_msg[6] = { 0 };
-			char wind_speed_msg[6] = { 0 };
+	// Vérifie que la trame commence bien par "$IIMWV"
+	char begin_frame[7] = { 0 };
+	memcpy(begin_frame, ws_message, 6);
+	if (0 != strcmp(begin_frame, frame_begin))
+		return;
 
-			memcpy(wind_dir_msg, &ws_message[7], 5);
-			memcpy(wind_speed_msg, &ws_message[15], 5);
+	// Extrait la direction (0-360°) et la vitesse (noeuds) depuis la trame
+	char wind_dir_msg[6] = { 0 };
+	char wind_speed_msg[6] = { 0 };
+	memcpy(wind_dir_msg, &ws_message[7], 5);
+	memcpy(wind_speed_msg, &ws_message[15], 5);
 
-			float wind_dir = atof(wind_dir_msg);
-			float wind_speed = atof(wind_speed_msg);
+	float wind_dir = atof(wind_dir_msg);
+	float wind_speed = atof(wind_speed_msg);
 
-			// Wind speed to m/s
-#define KNOTS_TO_MS 0.514444f
-			wind_speed = KNOTS_TO_MS * wind_speed;
+	// Conversions : vitesse en m/s, direction en [-180..180°]
+	wind_speed = KNOTS_TO_MS * wind_speed;
+	wind_dir = wind_direction_n180_0_p180(wind_dir);
 
-			// Wind direction correction from 0->360 to -180->180
-			wind_dir = wind_direction_n180_0_p180(wind_dir);
+	// Moyenne glissante de la direction (buffer circulaire de 20 valeurs)
+	static float wind_dir_log[WIND_DIR_AVG_LEN] = { 0 };
+	static int wind_dir_idx = 0;
+	wind_dir_log[wind_dir_idx] = wind_dir;
+	wind_dir_idx = (wind_dir_idx + 1) % WIND_DIR_AVG_LEN;
 
-			//FILTRAGE ET CALCULS MOYENNE
-#define MOY_LENGTH 20
-			static float wind_dir_log[MOY_LENGTH] = { 0 };
-
-			//log des dernières valeurs de direction du vent
-			//on décale la liste pour scrap la valeur la plus vielle et insérer la nouvelle valeur
-			if (moy_direction_ctu <= MOY_LENGTH) {
-				for (int i = 0; i < MOY_LENGTH - 1; i++) {
-					wind_dir_log[i + 1] = wind_dir_log[i];
-				}
-				wind_dir_log[0] = wind_dir;
-			}
-
-			//calcul de la moyenne de direction du vent
-			float moy_wind_direction = 0;
-			for (int i = 0; i < MOY_LENGTH; i++) {
-				moy_wind_direction += wind_dir_log[i];
-			}
-
-			sensor_data.wind_direction_avg = moy_wind_direction / MOY_LENGTH;
-
-			//wind_dirs[wind_dir_last_idx++] = wind_dir;
-			wind_speeds[wind_speed_last_idx++] = wind_speed;
-			//if (wind_dir_last_idx >= 4) wind_dir_last_idx = 0;
-			if (wind_speed_last_idx >= 4)
-				wind_speed_last_idx = 0;
-			// Do the averages
-			//sensor_data.wind_direction_avg = (wind_dirs[0] + wind_dirs[1] + wind_dirs[2] + wind_dirs[3]) / 4.0f;
-			sensor_data.wind_speed_avg = (wind_speeds[0] + wind_speeds[1] + wind_speeds[2]
-					+ wind_speeds[3]) / 4.0f;
-
-			sensor_data.wind_direction = wind_dir;			// - 120.0f;
-			sensor_data.wind_speed = wind_speed;
-
-			//HAL_GPIO_TogglePin(LED3_GPIO_Port, LED3_Pin);
-		}
+	float sum_dir = 0;
+	for (int i = 0; i < WIND_DIR_AVG_LEN; i++) {
+		sum_dir += wind_dir_log[i];
 	}
+	sensor_data.wind_direction_avg = sum_dir / WIND_DIR_AVG_LEN;
+
+	// Moyenne glissante de la vitesse (buffer circulaire de 4 valeurs)
+	wind_speeds[wind_speed_last_idx++] = wind_speed;
+	if (wind_speed_last_idx >= 4)
+		wind_speed_last_idx = 0;
+	sensor_data.wind_speed_avg = (wind_speeds[0] + wind_speeds[1] + wind_speeds[2] + wind_speeds[3]) / 4.0f;
+
+	// Valeurs instantanées
+	sensor_data.wind_direction = wind_dir;
+	sensor_data.wind_speed = wind_speed;
 }
 
-/*
- void get_wind_speed_dir(float* wind_dir) {
-
- }
- */
-
-//static const float TORQUE_RAW_TO_VALUE = 1 / (4096 / 160);
+// Facteurs de conversion et offsets de calibration du couple et de la cellule de charge
 static const float TORQUE_RAW_TO_VALUE = 0.0390625;
 float calibration_torque = 0;
-
-//divided by 12 bits ADC then multiplied by max weigth loadcell in lb then lb to kg INVERTED because * is faster
-//so * (1 / (12bits * max_weigth_loadcell_lb / lb_to_kg))
 static const float LOADCELL_RAW_TO_VALUE = 1 / (4096 / 200 * 2.2);
 float calibration_loadcell = 0;
 
+// Convertit les valeurs brutes de l'ADC en couple (N·m) et charge, avec calibration
 void ADC_Raw_to_Value(uint32_t torque_raw, uint32_t loadcell_raw) {
 	sensor_data.torque = ((float) torque_raw * TORQUE_RAW_TO_VALUE) + calibration_torque;
 	sensor_data.loadcell = ((float) loadcell_raw * LOADCELL_RAW_TO_VALUE)
 			+ calibration_loadcell;
 }
 
-void ReadTorqueLoadcellADC() {
-	ADC_ChannelConfTypeDef sConfigChannel8 = { 0 };
-	sConfigChannel8.SamplingTime = ADC_SAMPLETIME_15CYCLES;
-	sConfigChannel8.Channel = ADC_CHANNEL_8;
-	sConfigChannel8.Rank = 1;
-	if (HAL_ADC_ConfigChannel(&hadc1, &sConfigChannel8) != HAL_OK) {
-		Error_Handler();
-	}
-	HAL_ADC_Start(&hadc1);
-	HAL_ADC_PollForConversion(&hadc1, 1);
-	uint16_t adc_torque = HAL_ADC_GetValue(&hadc1);
-	HAL_ADC_Stop(&hadc1);
-
-	ADC_ChannelConfTypeDef sConfigChannel9 = { 0 };
-	sConfigChannel9.SamplingTime = ADC_SAMPLETIME_15CYCLES;
-	sConfigChannel9.Channel = ADC_CHANNEL_9;
-	sConfigChannel9.Rank = 1;
-	if (HAL_ADC_ConfigChannel(&hadc1, &sConfigChannel9) != HAL_OK) {
-		Error_Handler();
-	}
-	HAL_ADC_Start(&hadc1);
-	HAL_ADC_PollForConversion(&hadc1, 1);
-	uint16_t adc_loadcell = HAL_ADC_GetValue(&hadc1);
-	HAL_ADC_Stop(&hadc1);
-
-	static const float IAA_VDC_TO_ADC_V = 3.3f / 5.0f;
-	static const float ADC_TO_TORQUE = IAA_VDC_TO_ADC_V * (5.0f / 5.095f) * 160.0f
-			/ 4095.0f;
-	// sensor_data.torque = (float)adc_torque * ADC_TO_TORQUE;
-	// sensor_data.torque = (float)adc_torque;
-
-	static const float ADC_TO_LOADCELL = IAA_VDC_TO_ADC_V * (5.0f / 5.095f) * 500.0f
-			/ 4095.0f;
-	// sensor_data.loadcell = (float)adc_loadcell * ADC_TO_LOADCELL;
-	// sensor_data.loadcell = (float)adc_loadcell * ADC_TO_TORQUE;
-
-	// sensor_data.loadcell = 0.0f;
-	sensor_data.loadcell = (float) adc_torque * ADC_TO_LOADCELL;
-	sensor_data.torque = (float) adc_loadcell * ADC_TO_TORQUE;
-}
-
+// Valeurs ADC lues et canal courant (alternance couple/charge en mode interruption)
 uint32_t adc_value_pb0 = 0;
 uint32_t adc_value_pb1 = 0;
 uint8_t adc_channel = 0;
+
+// Lit le couple (PB0/CH8) et la charge (PB1/CH9) via l'ADC en mode interruption (non bloquant)
 void ReadTorqueLoadcellADC_IT() {
 	if (flag_IT_adc1_loadcell_torque == 1) {
 		flag_IT_adc1_loadcell_torque = 0;
@@ -213,7 +145,7 @@ void ReadTorqueLoadcellADC_IT() {
 			adc_value_pb0 = HAL_ADC_GetValue(&hadc1); // Read PB0 (ADC1_IN8) TORQUE
 			adc_channel = 1;
 
-			//configure for loadcell reading
+			// Configure pour la lecture de la charge (loadcell)
 			sConfig.SamplingTime = ADC_SAMPLETIME_15CYCLES;
 			sConfig.Channel = ADC_CHANNEL_9;
 			sConfig.Rank = 1;
@@ -224,10 +156,10 @@ void ReadTorqueLoadcellADC_IT() {
 			adc_value_pb1 = HAL_ADC_GetValue(&hadc1); // Read PB1 (ADC1_IN9) LOADCELL
 			adc_channel = 0;
 
-			//configure for torque reading
+			// Configure pour la lecture du couple (torque)
 			sConfig.SamplingTime = ADC_SAMPLETIME_15CYCLES;
 			sConfig.Channel = ADC_CHANNEL_8;
-			sConfig.Rank = 1; //always on 1 because it works
+			sConfig.Rank = 1;
 			if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK) {
 				Error_Handler();
 			}
@@ -239,112 +171,91 @@ void ReadTorqueLoadcellADC_IT() {
 	}
 }
 
-void ReadWheelRPM() {  // 500ms interval
+// Calcule le RPM de la roue à partir du compteur d'impulsions (appelée toutes les 500 ms)
+void ReadWheelRPM() {
 
-#define RPM_WHEEL_CNT_TIME_INVERSE 2.0f // Same as dividing by 500ms
+#define RPM_WHEEL_CNT_TIME_INVERSE 2.0f // équivaut à diviser par 500 ms
 #define WHEEL_CNT_PER_ROT 64.0f
 
 	static const float wheel_counter_to_rpm_constant = (RPM_WHEEL_CNT_TIME_INVERSE / WHEEL_CNT_PER_ROT) * 60.0f;
 
-    uint32_t pulses = wheel_rpm_counter;
-    debug_wheel_pulses_last = pulses;
+	uint32_t pulses = wheel_rpm_counter;
+	debug_wheel_pulses_last = pulses;
+	if (pulses > debug_wheel_pulses_max) {
+		debug_wheel_pulses_max = pulses;
+	}
 
-    if (pulses > debug_wheel_pulses_max) {
-        debug_wheel_pulses_max = pulses;
-    }
-
-    float wheel_rpm = (float)pulses * wheel_counter_to_rpm_constant;
-    wheel_rpm_counter = 0;
-
-    sensor_data.wheel_rpm = wheel_rpm;
+	sensor_data.wheel_rpm = (float) pulses * wheel_counter_to_rpm_constant;
+	wheel_rpm_counter = 0;
 }
 
-
-// Fonction pour calculer la vitesse du véhicule
+// Calcule la vitesse du véhicule (m/s) à partir du RPM de la roue
 void CalcVehicleSpeed() {
 
-#define WHEEL_DIAMETER 18.625f // Diamètre de la roue en pouces
+#define WHEEL_DIAMETER 18.625f // diamètre de la roue en pouces
 
-	// Calcul pour avoir le facteur qui transforme des RPM en m/s
-
-	// Étapes du calcul
-	// 1. PI * WHEEL_DIAMETER : circonférence de la roue (pouces/tour)
-	// 2. * 0.0254f           : conversion pouces -> metres (m/tour)
-	// 3. / 60.0f             : RPM -> metres/secondes (m/s)
-
-	// (OPTIONNEL) Pour avoir des km/h à la place : PI * WHEEL_DIAMETER * 0.0254f * 60.0f / 1000.0f;
+	// PI * diamètre (circonférence) * 0.0254 (pouces->m) / 60 (RPM->m/s)
+	// (Pour des km/h : ... * 0.0254f * 60.0f / 1000.0f)
 	static const float wheel_rpm_to_speed = PI * WHEEL_DIAMETER * 0.0254f / 60.0f;
 
-	// Liaison cinématique rotation → translation (roulement sans glissement)
 	sensor_data.vehicle_speed = sensor_data.wheel_rpm * wheel_rpm_to_speed;
 }
 
-
-// Ratios de la transmission NuVinci (output/input) (valeurs du PFE sur la transmission)
+// Ratios de la transmission NuVinci (output/input), valeurs issues du PFE sur la transmission
 static const float GEAR_RATIOS[14] = {0.1116f, 0.1264f, 0.1440f, 0.1636f, 0.1856f, 0.2112f, 0.2400f, 0.2728f, 0.3096f, 0.3524f, 0.4000f, 0.4540f, 0.5168f, 0.5868f };
 
-// Fonction pour calculer on est à quelle gear
+// Détermine le gear NuVinci courant (1 à 14) à partir du ratio roue/rotor
 void CalcCurrentGear(){
-    if(sensor_data.wheel_rpm > 0.1f && sensor_data.rotor_rpm > 0.1f){
-        sensor_data.gear_ratio = sensor_data.wheel_rpm / sensor_data.rotor_rpm;
+	if(sensor_data.wheel_rpm > 0.1f && sensor_data.rotor_rpm > 0.1f){
+		sensor_data.gear_ratio = sensor_data.wheel_rpm / sensor_data.rotor_rpm;
 
-        // Trouver le gear le plus proche
-        uint8_t closest = 0;
-        float min_diff = fabsf(sensor_data.gear_ratio - GEAR_RATIOS[0]);
-        for(int i = 1; i < 14; i++){
-            float diff = fabsf(sensor_data.gear_ratio - GEAR_RATIOS[i]);
-            if(diff < min_diff){
-                min_diff = diff;
-                closest = i;
-            }
-        }
-        sensor_data.current_gear = closest + 1;  // gear 1 à 14
-    } else {
-        sensor_data.gear_ratio = 0.0f;
-        sensor_data.current_gear = 0;  // 0 = indéterminé
-    }
+		// Cherche le ratio prédéfini le plus proche
+		uint8_t closest = 0;
+		float min_diff = fabsf(sensor_data.gear_ratio - GEAR_RATIOS[0]);
+		for(int i = 1; i < 14; i++){
+			float diff = fabsf(sensor_data.gear_ratio - GEAR_RATIOS[i]);
+			if(diff < min_diff){
+				min_diff = diff;
+				closest = i;
+			}
+		}
+		sensor_data.current_gear = closest + 1;  // gear 1 à 14
+	} else {
+		sensor_data.gear_ratio = 0.0f;
+		sensor_data.current_gear = 0;  // 0 = indéterminé
+	}
 }
 
-
-
-// Fonction pour calculer l'efficacité du véhicule (intake vent VS outtake véhicule)
+// Calcule l'efficacité de traction (%) = vitesse véhicule / vitesse vent
 void CalcEfficiency(void) {
-
-	// Condition pour ne pas diviser par 0
-    if (sensor_data.wind_speed < 0.1f) {
-        sensor_data.efficiency = 0.0f;
-    } else { // Calculer de l'efficacité vitesse du vehicule divisé par la vitesse du vent (en pourcentage)
-        sensor_data.efficiency = (sensor_data.vehicle_speed / sensor_data.wind_speed) * 100.0f;
-    }
+	if (sensor_data.wind_speed < 0.1f) {
+		sensor_data.efficiency = 0.0f;   // évite la division par zéro
+	} else {
+		sensor_data.efficiency = (sensor_data.vehicle_speed / sensor_data.wind_speed) * 100.0f;
+	}
 }
 
-
-
-// Fonction pour lire la vitesse du rotor
-void ReadRotorRPM() // 100 ms interval
+// Calcule le RPM du rotor avec filtre anti-bruit (appelée toutes les 100 ms)
+void ReadRotorRPM()
 {
-	// Process rpm counters
 #define ROTOR_CNT_PER_ROT 360.0f
-#define RPM_ROTOR_CNT_TIME_INVERSE 10.0f // Same as dividing by 100ms
+#define RPM_ROTOR_CNT_TIME_INVERSE 10.0f // équivaut à diviser par 100 ms
 	static const float rotor_counter_to_rpm_constant = (RPM_ROTOR_CNT_TIME_INVERSE
 			/ ROTOR_CNT_PER_ROT) * 60.0f;
 
-	// sensor_data.wheel_rpm = (float)wheel_rpm_counter * wheel_counter_to_rpm_constant;
-	// sensor_data.wheel_rpm = (float)wheel_rpm_counter;
 	float rotor_rpm = (float) rotor_rpm_counter * rotor_counter_to_rpm_constant;
 	rotor_rpm_counter = 0;
 
+	// Anti-bruit : ignore un saut > 500 RPM sauf s'il se répète 4 fois de suite
 #define RPM_ROTOR_ABR_IGNORE_CNT 4
 	static int ignore_counter = 0;
-	if (abs(sensor_data.rotor_rpm - rotor_rpm) > 500) {
+	if (fabsf(sensor_data.rotor_rpm - rotor_rpm) > 500) {
 		ignore_counter++;
 		if (ignore_counter == RPM_ROTOR_ABR_IGNORE_CNT) {
 			ignore_counter = 0;
-			// Force update the value
-			sensor_data.rotor_rpm = rotor_rpm;
+			sensor_data.rotor_rpm = rotor_rpm; // saut confirmé : on accepte
 		}
-		// Ignore
-		return;
+		return; // sinon on ignore cette lecture
 	}
 	ignore_counter = 0;
 
@@ -353,10 +264,7 @@ void ReadRotorRPM() // 100 ms interval
 
 #define log_encoder_raw_data_size 10
 
-
-// Calcule la MOYENNE d'un tableau de valeurs entières (uint32_t).
-// Utilise un accumulateur en double pour éviter de perdre de la précision.
-// data = tableau de valeurs, size = nombre de valeurs.
+// Moyenne d'un tableau d'entiers (accumulateur en double pour la précision)
 double calculate_moy_uint32(uint32_t *data, uint32_t size) {
 	double sum = 0;
 	for (int i = 0; i < size; i++) {
@@ -365,18 +273,16 @@ double calculate_moy_uint32(uint32_t *data, uint32_t size) {
 	return sum / size;
 }
 
-// Calcule l'ÉCART-TYPE d'un tableau de valeurs.
-// moy = moyenne déjà calculée (par calculate_moy_uint32), data = tableau, size = nombre de valeurs.
+// Écart-type d'un tableau d'entiers (mesure la dispersion autour de la moyenne)
 double calculate_std_dev_uint32(double moy, uint32_t *data, uint32_t size) {
 	double sum = 0;
 	for (int i = 0; i < size; i++) {
 		sum += pow(((double) data[i]) - moy, 2);
 	}
-	return sqrt(sum / size); //double std_dev
+	return sqrt(sum / size);
 }
 
-// Fonction de comparaison utilisée par qsort() pour trier deux éléments.
-// Retourne un nombre < 0 si a < b, 0 si égaux, > 0 si a > b.
+// Comparaison croissante de deux uint32_t, pour qsort()
 int compare(const void *a, const void *b) {
 	uint32_t x = *(const uint32_t*) a;
 	uint32_t y = *(const uint32_t*) b;
@@ -385,7 +291,7 @@ int compare(const void *a, const void *b) {
 	return 0;
 }
 
-// Calcule la MÉDIANE d'un tableau de valeurs. Utile pour filtrer le bruit de l'encodeur.
+// Médiane d'un tableau d'entiers (résiste bien aux valeurs aberrantes)
 double calculate_median_uint32(uint32_t *data, uint32_t size) {
 	uint32_t data_temp[log_encoder_raw_data_size] = { 0 };
 
@@ -396,259 +302,75 @@ double calculate_median_uint32(uint32_t *data, uint32_t size) {
 	qsort(data_temp, size, sizeof(uint32_t), compare);
 
 	if (size % 2 == 0) {
-		// Even number of elements: average of the two middle elements
-		return (data_temp[size / 2 - 1] + data_temp[size / 2]) / 2.0;
+		return (data_temp[size / 2 - 1] + data_temp[size / 2]) / 2.0; // pair : moyenne des 2 du milieu
 	} else {
-		// Odd number of elements: middle element
-		return data_temp[size / 2];
+		return data_temp[size / 2]; // impair : élément du milieu
 	}
 }
 
+// Historique des 10 dernières lectures brutes de l'encodeur ([0] = plus récente)
 uint32_t log_encoder_raw_data[log_encoder_raw_data_size] = { 0 };
-uint32_t log_encoder_raw_data_filtered[log_encoder_raw_data_size] = { 0 };
 
+// Filtre anti-bruit : remplace une lecture aberrante (> 1 écart-type) par la médiane
 uint32_t verify_new_encoder_raw_data(uint32_t encoder_raw_data) {
-	//ajouter la nouvelle valeur dans la liste et on scrap la plus vieille
+	// Décale l'historique et insère la nouvelle valeur en tête
 	for (int i = log_encoder_raw_data_size - 1; i > 0; i--) {
 		log_encoder_raw_data[i] = log_encoder_raw_data[i - 1];
-		log_encoder_raw_data_filtered[i] = log_encoder_raw_data_filtered[i - 1];
 	}
 	log_encoder_raw_data[0] = encoder_raw_data;
 
-	//moyenne
 	double moy = calculate_moy_uint32(log_encoder_raw_data, log_encoder_raw_data_size);
+	double std_dev = calculate_std_dev_uint32(moy, log_encoder_raw_data, log_encoder_raw_data_size);
+	double lower_bound = moy - std_dev;
+	double upper_bound = moy + std_dev;
 
-	//écart type
-	double std_dev = calculate_std_dev_uint32(moy, log_encoder_raw_data,
-	log_encoder_raw_data_size);
-	double lower_bound = moy - 1 * std_dev;
-	double upper_bound = moy + 1 * std_dev;
-
-	//si la valeur est mauvaise on la remplace par la moyenne
+	// Hors bornes = aberrante : on la remplace par la médiane
 	if ((encoder_raw_data < lower_bound) || (encoder_raw_data > upper_bound)) {
 		encoder_raw_data = (uint32_t) calculate_median_uint32(log_encoder_raw_data,
-		log_encoder_raw_data_size);
+				log_encoder_raw_data_size);
 	}
-	log_encoder_raw_data_filtered[0] = encoder_raw_data;
 
-	return log_encoder_raw_data_filtered[0];
+	return encoder_raw_data;
 }
 
-// Fonction pour lire le encoder pour l'angle des pales
+// Lit l'encodeur absolu de l'angle des pales (SSI 12 bits en bit-banging) puis filtre le résultat
 #define PITCH_ENCODER_BITS 12
 uint32_t ReadPitchEncoder() {
+	// Impulsion d'horloge initiale
 	HAL_GPIO_WritePin(Mast_Clock_GPIO_Port, Mast_Clock_Pin, GPIO_PIN_RESET);
 	delay_us(1);
 	HAL_GPIO_WritePin(Mast_Clock_GPIO_Port, Mast_Clock_Pin, GPIO_PIN_SET);
 	delay_us(1);
 
-	// SSI works from 100kHz to about 2MHz
+	// Lit les 12 bits, du plus fort au plus faible (MSB first)
 	uint32_t encoder_raw_data = 0;
 	for (int i = 0; i < PITCH_ENCODER_BITS; i++) {
-
 		HAL_GPIO_WritePin(Mast_Clock_GPIO_Port, Mast_Clock_Pin, GPIO_PIN_RESET);
 		delay_us(1);
 
 		encoder_raw_data <<= 1;
-
 		if (HAL_GPIO_ReadPin(Mast_Data_GPIO_Port, Mast_Data_Pin)) {
 			encoder_raw_data |= 1;
 		}
 
 		HAL_GPIO_WritePin(Mast_Clock_GPIO_Port, Mast_Clock_Pin, GPIO_PIN_SET);
 		delay_us(1);
-
 	}
 
-	encoder_raw_data = verify_new_encoder_raw_data(encoder_raw_data);
-
-	return encoder_raw_data;
+	return verify_new_encoder_raw_data(encoder_raw_data);
 }
 
-/*
- #define PITCH_ENCODER_BITS 12
- uint32_t ReadPitchEncoder()
- {
- HAL_GPIO_WritePin(Pitch_Clock_GPIO_Port, Pitch_Clock_Pin, GPIO_PIN_RESET);
- delay_us(1);
- HAL_GPIO_WritePin(Pitch_Clock_GPIO_Port, Pitch_Clock_Pin, GPIO_PIN_SET);
- delay_us(1);
-
- // SSI works from 100kHz to about 2MHz
- uint32_t encoder_raw_data = 0;
- for(int i = 0; i < PITCH_ENCODER_BITS; i++)
- {
-
- HAL_GPIO_WritePin(Pitch_Clock_GPIO_Port, Pitch_Clock_Pin, GPIO_PIN_RESET);
- delay_us(1);
-
- encoder_raw_data <<= 1;
-
- if (HAL_GPIO_ReadPin(Pitch_Data_GPIO_Port, Pitch_Data_Pin)) {
- encoder_raw_data |= 1;
- }
-
-
-
- HAL_GPIO_WritePin(Pitch_Clock_GPIO_Port, Pitch_Clock_Pin, GPIO_PIN_SET);
- delay_us(1);
-
- }
-
- encoder_raw_data = verify_new_encoder_raw_data(encoder_raw_data);
-
- return encoder_raw_data;
- }
- */
-
-/*
- static inline uint16_t gray_to_bin(uint16_t g) {
- g ^= g >> 1;
- g ^= g >> 2;
- g ^= g >> 4;
- g ^= g >> 8;
- return g;
- }
-
- #define PITCH_ENCODER_BITS 12
- uint32_t ReadPitchEncoder() {
-
- // Tight timing (optional): mask IRQs during the 12-bit burst
- uint32_t primask = __get_PRIMASK();
- __disable_irq();
-
- HAL_GPIO_WritePin(Mast_Clock_GPIO_Port, Mast_Clock_Pin, GPIO_PIN_RESET);
- delay_us(1);
- HAL_GPIO_WritePin(Mast_Clock_GPIO_Port, Mast_Clock_Pin, GPIO_PIN_SET);
- delay_us(1);
-
- // SSI works from 100kHz to about 2MHz
- uint32_t encoder_raw_data = 0;
- for (int i = 0; i < PITCH_ENCODER_BITS; i++) {
-
- HAL_GPIO_WritePin(Mast_Clock_GPIO_Port, Mast_Clock_Pin, GPIO_PIN_RESET);
- encoder_raw_data <<= 1;
-
- if (HAL_GPIO_ReadPin(Mast_Data_GPIO_Port, Mast_Data_Pin)) {
- encoder_raw_data |= 1;
- }
-
- delay_us(1);
-
- HAL_GPIO_WritePin(Mast_Clock_GPIO_Port, Mast_Clock_Pin, GPIO_PIN_SET);
- delay_us(1);
-
- }
-
- if (!primask)
- __enable_irq();
-
- //encoder_raw_data = verify_new_encoder_raw_data(encoder_raw_data);
-
- return encoder_raw_data;
- }
- */
-/*
- //to verify : SSI works from 100kHz to about 2MHz
- #define PITCH_ENCODER_BITS 12
- //AD36/0012AF-OCSBB
- uint32_t ReadPitchEncoder() {
- //return 0;
- HAL_GPIO_WritePin(Mast_Clock_GPIO_Port, Mast_Clock_Pin, GPIO_PIN_SET);
- delay_us(3);
-
- // Optional: mask interrupts for tighter timing
- uint32_t primask = __get_PRIMASK();
- __disable_irq();
-
- // SSI works from 100kHz to about 2MHz
- uint32_t encoder_raw_data = 0;
- for (int i = 0; i < PITCH_ENCODER_BITS; i++) {
-
- HAL_GPIO_WritePin(Mast_Clock_GPIO_Port, Mast_Clock_Pin, GPIO_PIN_RESET);
- delay_us(1);
-
- HAL_GPIO_WritePin(Mast_Clock_GPIO_Port, Mast_Clock_Pin, GPIO_PIN_SET);
- delay_us(1);
-
- encoder_raw_data <<= 1;
-
- if (HAL_GPIO_ReadPin(Mast_Data_GPIO_Port, Mast_Data_Pin)) {
- encoder_raw_data |= 1;
- }
-
- }
-
- // Restore IRQ state
- if (!primask)
- __enable_irq();
-
- // Keep only 12 data bits, then convert Gray -> binary (typical for AD36 SSI)
- encoder_raw_data &= 0x0FFF;
- //encoder_raw_data = gray_to_bin((uint16_t)encoder_raw_data);
-
- encoder_raw_data = verify_new_encoder_raw_data(encoder_raw_data);
-
- return encoder_raw_data;
- }
-
- */
-
-
+// Lit l'encodeur du mât (SSI 22 bits). Non appelée pour l'instant + partage les pins du pitch
 uint32_t ReadMastEncoder() {
-
 	uint32_t mast_data = 0;
 	for (int i = 0; i < 22; ++i) {
 		mast_data <<= 1;
 
 		HAL_GPIO_WritePin(Mast_Clock_GPIO_Port, Mast_Clock_Pin, GPIO_PIN_RESET);
-		//for (int i = 0; i < 20; ++i) {} // Wait 10 us
-		// delay_us(10);
-
 		HAL_GPIO_WritePin(Mast_Clock_GPIO_Port, Mast_Clock_Pin, GPIO_PIN_SET);
-		//for (int i = 0; i < 20; ++i) {} // Wait 10 us
-		// delay_us(10);
 
 		mast_data |= HAL_GPIO_ReadPin(Mast_Data_GPIO_Port, Mast_Data_Pin);
 	}
-
 	return mast_data;
-
-	//HAL_GPIO_TogglePin(Mast_Clock_GPIO_Port, Mast_Clock_Pin);
-	//return 0;
 }
-
-
-/*
- void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin) {
- if (GPIO_Pin == GPIO_PIN_14) // PD_14 -- PB2
- {
- //HAL_GPIO_TogglePin(LED4_GPIO_Port, LED4_Pin);
- HAL_GPIO_WritePin(LED4_GPIO_Port, LED4_Pin, GPIO_PIN_SET);
- pb2_value = 1;
-
- pb2_update = 1;
- } else if (GPIO_Pin == GPIO_PIN_15) // PD_15 -- PB1
- {
- //HAL_GPIO_TogglePin(LED3_GPIO_Port, LED3_Pin);
- // HAL_GPIO_WritePin(LED3_GPIO_Port, LED3_Pin, GPIO_PIN_SET);
- pb1_value = 1;
-
- pb1_update = 1;
- } else if (GPIO_Pin == GPIO_PIN_0) // Rotor RPM
- {
- rotor_rpm_counter++;
- } else if (GPIO_Pin == GPIO_PIN_1) // Wheel RPM
- {
- wheel_rpm_counter++;
- } else if (GPIO_Pin == GPIO_PIN_3) // Limit 1
- {
- sensor_data.limit1 = 1;
- } else if (GPIO_Pin == GPIO_PIN_4) // Limit 2
- {
- sensor_data.limit2 = 1;
- }
-
- }
- */
 
