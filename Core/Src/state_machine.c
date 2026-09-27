@@ -486,7 +486,7 @@ uint32_t DoStateCan() {
 				break;
 			}
 			case 4: {
-				float wind_speed_value = (float) sensor_data.wind_speed; // DONE
+				float wind_speed_value = (float) sensor_data.wind_speed_avg; // DONE
 				TransmitCAN(CAN_ID_MARIO_VAL_WIND_SPEED, (uint8_t*) &wind_speed_value, 4, 0);
 				can_tx_state++;
 				break;
@@ -494,7 +494,7 @@ uint32_t DoStateCan() {
 
 			// ===== DONE — mais à valider avec le nouveau rotor =====
 			case 5: {
-				float gear_ratio_value = sensor_data.current_gear; // DONE, mais voir nouvelles valeurs du rotor
+				float gear_ratio_value = sensor_data.gear_ratio; // DONE, mais voir nouvelles valeurs du rotor
 				TransmitCAN(CAN_ID_MARIO_VAL_GEAR_RATIO, (uint8_t*) &gear_ratio_value, 4, 0);
 				can_tx_state++;
 				break;
@@ -512,15 +512,22 @@ uint32_t DoStateCan() {
 				break;
 			}
 
-			// ===== À CHANGER =====
 			case 8: {
+			    float current_gear_value = (float) sensor_data.current_gear;
+			    TransmitCAN(CAN_ID_MARIO_VAL_CURRENT_GEAR, (uint8_t*) &current_gear_value, 4, 0);
+			    can_tx_state++;
+			    break;
+			}
+
+			// ===== À CHANGER =====
+			case 9: {
 				float pitch_cmd_value = CalcPitchAuto(); // L'angle de pale idéal d'après le polynome (à changer)
 				TransmitCAN(CAN_ID_MARIO_VAL_PITCH_CMD, (uint8_t*) &pitch_cmd_value, 4, 0);
 				can_tx_state++;
 				break;
 			}
 
-			case 9: {
+			case 10: {
 				float turb_dir_value = test_ws_receive_flag; // À CHANGER POUR mast_angle
 				TransmitCAN(CAN_ID_MARIO_VAL_TURB_DIR, (uint8_t*) &turb_dir_value, 4, 0);
 				can_tx_state++;
@@ -528,12 +535,6 @@ uint32_t DoStateCan() {
 			}
 
 			// ===== À ENLEVER =====
-			case 10: {
-				float turb_cmd_value = sensor_data.wind_speed_avg + update_test + status_button_hg; // À ENLEVER
-				TransmitCAN(CAN_ID_MARIO_VAL_TURB_CMD, (uint8_t*) &turb_cmd_value, 4, 0);
-				can_tx_state++;
-				break;
-			}
 			case 11: {
 				float rotor_rops_cmd_value = ROTOR_RPM_ROPS; // À ENLEVER
 				TransmitCAN(CAN_ID_MARIO_VAL_ROTOR_ROPS_CMD, (uint8_t*) &rotor_rops_cmd_value, 4, 0);
