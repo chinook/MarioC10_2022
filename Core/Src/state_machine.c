@@ -3,6 +3,9 @@
  *
  *  Created on: Aug 16, 2025
  *      Author: thoma
+ *
+ *  Edited on: Sep 27, 2026
+ *     Editor: Simon B.
  */
 #include "state_machine.h"
 
@@ -203,7 +206,7 @@ uint32_t DoStateAcquisition() {
 		            float    cmd       = sensor_data.wind_speed_avg;
 		            float    wind_dir  = sensor_data.wind_direction;
 		            float    eff       = sensor_data.efficiency;
-		            float    tsr       = CalcTSR();
+		            CalcTSR(); float tsr = sensor_data.tsr;
 
 		            // Write data row (no %f — use integer math for floats)
 		            sprintf(line,
@@ -474,7 +477,7 @@ uint32_t DoStateCan() {
 				break;
 			}
 			case 2: {
-				float tsr_value = CalcTSR(); // DONE
+				CalcTSR(); float tsr_value = sensor_data.tsr; // DONE
 				TransmitCAN(CAN_ID_MARIO_VAL_TSR, (uint8_t*) &tsr_value, 4, 0);
 				can_tx_state++;
 				break;
@@ -519,14 +522,15 @@ uint32_t DoStateCan() {
 			    break;
 			}
 
-			// ===== À CHANGER =====
 			case 9: {
-				float pitch_cmd_value = CalcPitchAuto(); // L'angle de pale idéal d'après le polynome (à changer)
+				CalcPitchAuto(); // L'angle de pale idéal d'après le polynome (à changer)
+				float pitch_cmd_value = sensor_data.pitch_auto_target;
 				TransmitCAN(CAN_ID_MARIO_VAL_PITCH_CMD, (uint8_t*) &pitch_cmd_value, 4, 0);
 				can_tx_state++;
 				break;
 			}
 
+			// ===== À CHANGER =====
 			case 10: {
 				float turb_dir_value = test_ws_receive_flag; // À CHANGER POUR mast_angle
 				TransmitCAN(CAN_ID_MARIO_VAL_TURB_DIR, (uint8_t*) &turb_dir_value, 4, 0);
@@ -565,7 +569,7 @@ uint32_t DoStateCan() {
 				can_tx_state = 0;
 				break;
 			}
-		}
+
 		default:
 			// Unknown CAN ID
 			can_tx_state = 0;

@@ -37,7 +37,8 @@ void DoPitchControl() {
 	if (rops_status == 1) {
 		pitch_auto_target = -90;
 	} else {
-		pitch_auto_target = CalcPitchAuto();
+		CalcPitchAuto();
+		pitch_auto_target = sensor_data.pitch_auto_target;
 		//pitch_auto_target += status_button_bg - status_button_bgg;
 	}
 

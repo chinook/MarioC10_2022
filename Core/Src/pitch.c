@@ -119,7 +119,7 @@ void log_pitch_angle(float pitch_angle) {
 
 
 // Fonction pour calculer le Tip Speed Ratio avec la vitesse du rotor et la vitesse du vent
-float CalcTSR() {
+void CalcTSR() {
 	// Constante pour passer de RPM à rad/s
 	static const float RPM_TO_RADS = 2 * PI / 60; //0.10472
 
@@ -135,24 +135,29 @@ float CalcTSR() {
 	float wind_speed_ms = sensor_data.wind_speed;
 
 	// Condition pour ne pas diviser par 0
-	if (fabs(wind_speed_ms) < MIN_EPSILON)
-		return 0.0f;
+	if (fabs(wind_speed_ms) < MIN_EPSILON) {
+		sensor_data.tsr = 0.0f;
+		return;
+	}
 
 	// Calcul pour trouver le tip speed ratio
 	float tsr = (PALE_RADIUS * rotor_speed_omega) / wind_speed_ms;
 
 	// Condition pour ne pas retourner une petite valeur
-	if (tsr < MIN_EPSILON)
-		return 0.0f;
-	return tsr;
+	if (tsr < MIN_EPSILON) {
+		sensor_data.tsr = 0.0f;
+		return;
+	}
+	sensor_data.tsr = tsr;
 }
 
 
-float CalcPitchAuto() {
+void CalcPitchAuto() {
 //polynome vérifié en compé C12 calculs bon aout 2024
 #define ALGO_C12 1
 
-	float tsr = CalcTSR();
+	CalcTSR();
+	float tsr = sensor_data.tsr;
 
 	if (ALGO_C12) {
 		float pitch_target = 0;
@@ -186,7 +191,7 @@ float CalcPitchAuto() {
 
 		pitch_target = -pitch_target; // - selon le sens de rotation des pâles / rops pales en drapeau
 
-		return pitch_target;
+		sensor_data.pitch_auto_target = pitch_target;
 	}
 }
 

@@ -23,8 +23,8 @@ extern uint8_t warning_pitch_angle_close_to_down;
 
 float CalcPitchAngle_raw_to_deg();
 
-float CalcTSR();
-float CalcPitchAuto();
+void CalcTSR();
+void CalcPitchAuto();
 
 void VerifyPitchTargetCmd(uint32_t target_pitch_abs);
 

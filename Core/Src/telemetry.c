@@ -145,7 +145,7 @@ static void UartTxAcquisition() {
 	TransmitDataAcq(5, (int*) &sensor_data.wheel_rpm);
 	//delay_us(10);
 
-	float tsr2 = CalcTSR();
+	CalcTSR(); float tsr2 = sensor_data.tsr;
 	TransmitDataAcq(6, (int*) &tsr2);
 	//delay_us(10);
 
@@ -205,7 +205,7 @@ static void UartTxAcquisition() {
 	msg_data.wind_direction_msg.data = sensor_data.wind_direction;
 	msg_data.rotor_rpm_msg.data = sensor_data.rotor_rpm;
 	msg_data.wheel_rpm_msg.data = sensor_data.wheel_rpm;
-	float tsr = CalcTSR();
+	CalcTSR(); float tsr = sensor_data.tsr;
 	tsr = 12.78f;
 	msg_data.tsr_msg.data = tsr;
 
@@ -274,7 +274,7 @@ uint32_t DoStateUartTx() {
 		//	HAL_GPIO_WritePin(LED4_GPIO_Port, LED4_Pin, GPIO_PIN_SET);
 		//}
 
-		// float tsr = CalcTSR();
+		// CalcTSR(); float tsr = sensor_data.tsr;
 		static unsigned char tsr_str[20] = { 0 };
 		// FloatToString(tsr, 4, tsr_str);
 
