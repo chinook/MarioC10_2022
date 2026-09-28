@@ -7,14 +7,12 @@
 
 #include "pitch.h"
 #include "main.h"
-
-#include <stdio.h>
-
 #include "chinook_can_ids.h"
 
-#define KNOTS_TO_MS 0.514444f
+#include <math.h>
+#include <stdio.h>
 
-//pour 12 bits
+#define KNOTS_TO_MS 0.514444f
 
 //pour 12 bits, c'est des valeurs de 0 à 4095
 //doit être recalibrer À CHAQUE FOIS que le spider ou l'encodeur est démonté, sinon le 0 n'est plus bon
@@ -24,7 +22,7 @@
 //#define PALE_RADIUS 0.879f //C12
 
 static float log_pitch[200] = { 0 };
-static uint8_t startup_filter_pitch_angle = 1;
+//static uint8_t startup_filter_pitch_angle = 1;
 
 uint8_t filter_pitch_angle(float pitch_angle);
 void log_pitch_angle(float pitch_angle);

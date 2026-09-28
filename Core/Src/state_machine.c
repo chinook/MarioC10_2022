@@ -17,9 +17,13 @@
 #include "motor_control.h"
 #include "pitch.h"
 #include "sensors.h"
+#include "telemetry.h"
+
+#include <math.h>
+#include <stdio.h>
+#include <string.h>
 
 uint32_t DoStateCan();
-
 void delay_us(uint16_t delay16_us);
 
 uint32_t current_state = STATE_INIT;
@@ -27,11 +31,8 @@ uint32_t current_state = STATE_INIT;
 SensorData sensor_data;
 
 uint8_t pitch_done = 0;
-
 uint8_t rops_status = 0;
-
 uint8_t test_buttons_volant = 0;
-
 uint8_t flag_alive_led = 0;
 uint8_t flag_uart_tx_send = 0;
 uint8_t flag_telemetry = 0;
@@ -138,20 +139,16 @@ uint32_t DoStateAcquisition() {
 		flag_wheel_rpm_process = 0;
 
 		// Fonction pour aller chercher le wheel_rpm qui est essentielle pour CalcVehicleSpeed()
-
 		// ReadWheelRPM();
 
-		// Fonction définie dans sensors.c pour calculer la vitesse du vehicule
+		// Fonctions pour avoir plusieurs données sur le véhicule
+		// (Aller voir chaque fonction si on veut savoir elle retourne quoi)
 		CalcVehicleSpeed();
-
-		// Fonction définie dans sensors.c pour calculer à quelle gear on est rendue
 		CalcCurrentGear();
-
-		// Fonction définie dans sensors.c pour calculer l'efficacité du véhicule
 		CalcEfficiency();
+		CalcTSR();
 
-
-		// SD Card telemetry logging
+		// Sauvegarde des données sur la carte micro SD
 		{
 		    UINT bw;
 		    char line[320];
@@ -206,7 +203,7 @@ uint32_t DoStateAcquisition() {
 		            float    cmd       = sensor_data.wind_speed_avg;
 		            float    wind_dir  = sensor_data.wind_direction;
 		            float    eff       = sensor_data.efficiency;
-		            CalcTSR(); float tsr = sensor_data.tsr;
+		            float    tsr	   = sensor_data.tsr;
 
 		            // Write data row (no %f — use integer math for floats)
 		            sprintf(line,
@@ -453,13 +450,8 @@ float update_test = 0;
 
 uint32_t DoStateCan() {
 	//affichage volant 16 cmd au 1ms donc 16ms de refresh rate
-	if (flag_affichage_volant == 1) // every 1ms
-			{
+	if (flag_affichage_volant == 1){ // every 1ms
 		flag_affichage_volant = 0;
-
-		//update_test += 1;
-		//if (update_test >= 1) update_test = 0.1f;
-		//update_test = test_buttons_volant;
 
 		static uint32_t can_tx_state = 0;
 		switch (can_tx_state) {
@@ -685,15 +677,13 @@ void ExecuteStateMachine() {
 
 void delay_us(uint16_t delay16_us) {
 	htim1.Instance->CNT = 0;
-	while (htim1.Instance->CNT < delay16_us)
-		;
+	while (htim1.Instance->CNT < delay16_us);
 }
 
 void delay_ms(uint16_t delay16_ms) {
 	while (delay16_ms > 0) {
 		htim1.Instance->CNT = 0;
 		delay16_ms--;
-		while (htim1.Instance->CNT < 1000)
-			;
+		while (htim1.Instance->CNT < 1000);
 	}
 }

@@ -24,7 +24,7 @@ extern uint8_t status_button_bdd;
 
 extern uint32_t status_button_debug;
 
-
+void ProcessCanMessage(void);
 HAL_StatusTypeDef TransmitCAN(uint32_t id, uint8_t* buf, uint8_t size, uint8_t with_priority);
 
 void CanInit();
