@@ -236,8 +236,7 @@ void CalcEfficiency(void) {
 }
 
 // Calcule le RPM du rotor avec filtre anti-bruit (appelée toutes les 100 ms)
-void ReadRotorRPM()
-{
+void ReadRotorRPM() {
 #define ROTOR_CNT_PER_ROT 360.0f
 #define RPM_ROTOR_CNT_TIME_INVERSE 10.0f // équivaut à diviser par 100 ms
 	static const float rotor_counter_to_rpm_constant = (RPM_ROTOR_CNT_TIME_INVERSE

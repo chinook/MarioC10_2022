@@ -7,6 +7,7 @@
 
 #include "motor_control.h"
 
+#include <math.h>
 #include <stdlib.h>
 
 #include "main.h"
@@ -47,9 +48,7 @@ void DoPitchControl() {
 	float delta_angle_pales_temp = delta_angle_pales *100;
 	float ABSOLUTE_ENCODER_RESOLUTION_ANGLE_12BITS_UPDATE_DEG_THRESHOLD_temps = ABSOLUTE_ENCODER_RESOLUTION_ANGLE_12BITS_UPDATE_DEG_THRESHOLD *200;
 
-	if (abs(
-			delta_angle_pales_temp) > ABSOLUTE_ENCODER_RESOLUTION_ANGLE_12BITS_UPDATE_DEG_THRESHOLD_temps) //pitch angle far from cmd
-			{
+	if (fabsf(delta_angle_pales_temp) > ABSOLUTE_ENCODER_RESOLUTION_ANGLE_12BITS_UPDATE_DEG_THRESHOLD_temps) { //pitch angle far from cmd
 		if (delta_angle_pales > 0) {
 			direction = MOTOR_DIRECTION_LEFT;
 		} else {
@@ -79,9 +78,11 @@ void DoPitchControl() {
 	TransmitCAN(CAN_ID_CMD_MARIO_PITCH_SPEED, &speed, 4, 1);
 }
 
-void DoMastControl() {
+
 #define WIND_SPEED_MAST_THRESHOLD 1.0f
 #define WIND_DIR_MAST_HYSTERESIS 10.0f // -10degs, +10degs
+
+void DoMastControl() {
 
 	uint32_t dir_left = 0x200;
 	uint32_t dir_right = 0x300;
@@ -92,7 +93,7 @@ void DoMastControl() {
 		//return;
 	}
 	if (sensor_data.wind_speed_avg >= WIND_SPEED_MAST_THRESHOLD) {
-		if (abs(sensor_data.wind_direction_avg) >= WIND_DIR_MAST_HYSTERESIS) {
+		if (fabsf(sensor_data.wind_direction_avg) >= WIND_DIR_MAST_HYSTERESIS) {
 			if (sensor_data.wind_direction_avg > 0.0f) {
 				MotorMastSpeedDir(-100);
 			} else {

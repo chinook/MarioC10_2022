@@ -14,6 +14,7 @@ uint8_t check_pitch_warning();
 void DoPitchControl();
 void DoMastControl();
 void DriveMotorMast();
+void MotorMastSpeedDir(int8_t speed_dir);
 
 extern float pitch_auto_target;
 
