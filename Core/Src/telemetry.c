@@ -3,6 +3,9 @@
  *
  *  Created on: Aug 16, 2025
  *      Author: thoma
+ *
+ *  Edited on : Sep 28, 2026
+ *  	Editor: Simon B.
  */
 
 #include "stm32f4xx_hal.h"
