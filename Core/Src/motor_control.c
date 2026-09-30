@@ -84,12 +84,8 @@ void DoPitchControl() {
 
 void DoMastControl() {
 
-	uint32_t dir_left = 0x200;
-	uint32_t dir_right = 0x300;
-	uint32_t dir_stop = 0x100;
-
-	if (0) { //sensor_data.limit1 == 0 || sensor_data.limit2 == 0
-		//TransmitCAN(MARIO_MAST_MANUAL_CMD, (uint8_t*)&dir_stop, 4, 1);
+	if (0) {
+		//sensor_data.limit1 == 0 || sensor_data.limit2 == 0
 		//return;
 	}
 	if (sensor_data.wind_speed_avg >= WIND_SPEED_MAST_THRESHOLD) {
