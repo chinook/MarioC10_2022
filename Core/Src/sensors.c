@@ -4,7 +4,7 @@
  *  Created on: Aug 17, 2025
  *      Author: thoma
  *
- *  Edited on : 26 septembre 2026
+ *  Edited on : Oct 1, 2026
  *  	Editor: Simon B.
  */
 
@@ -95,6 +95,9 @@ void ReadWeatherStation() {
 	wind_dir = wind_direction_n180_0_p180(wind_dir);
 
 	// Moyenne glissante de la direction (buffer circulaire de 20 valeurs)
+	// Calcul de l'amplitude du désalignement, peu importe le côté.
+	// On répond à la question « de combien de degrés le vent est-il décalé ? »
+	// sans se soucier encore de la direction (gauche/droite).
 	static float wind_dir_log[WIND_DIR_AVG_LEN] = { 0 };
 	static int wind_dir_idx = 0;
 	wind_dir_log[wind_dir_idx] = wind_dir;

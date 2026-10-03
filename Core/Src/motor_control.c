@@ -3,6 +3,9 @@
  *
  *  Created on: Aug 17, 2025
  *      Author: thoma
+ *
+ *  Edited on : Oct 1, 2026
+ *  	Editor: Simon B.
  */
 
 #include "motor_control.h"
@@ -14,8 +17,6 @@
 #include "can.h"
 #include "sensors.h"
 #include "pitch.h"
-
-float func_moy_wind_direction();
 
 #define PITCH_UPDATE_DEG_THRESHOLD 0.25f
 #define MIN_ERROR_ANGLE 0.1f
