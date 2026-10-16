@@ -83,22 +83,79 @@ void DoPitchControl() {
 #define WIND_SPEED_MAST_THRESHOLD 1.0f
 #define WIND_DIR_MAST_HYSTERESIS 10.0f // -10degs, +10degs
 
+#define MAST_DEG_PER_SEC     1.0f   // À MESURER (deg/s du mât à vitesse constante, négatif si le signe est inversé)
+#define MAST_LIMIT_FREE_MS   200    // délai sans métal avant de libérer la direction bloquée
+
+float mast_angle = 0.0f;
+uint8_t mast_calibrated = 0;           // 0 à chaque démarrage, jamais sauvegardé
+static int8_t mast_applied_dir = 0;    // direction réellement appliquée au moteur (-1, 0, +1)
+static int8_t mast_last_dir = 0;       // dernière direction non nulle appliquée
+static int8_t mast_blocked_dir = 0;    // direction interdite par le limit switch (0 = aucune)
+static uint32_t mast_last_tick = 0;
+static uint32_t mast_limit_seen_tick = 0;
+
+// Limit switch : 1 = rien, 0 = métal détecté
+static uint8_t MastLimitActive(void) {
+	return HAL_GPIO_ReadPin(LIMIT1_GPIO_Port, LIMIT1_Pin) == GPIO_PIN_RESET;
+}
+
+// Remplace tous les appels directs à MotorMastSpeedDir()
+void MastCommand(int8_t speed_dir) {
+	int8_t dir = (speed_dir > 0) - (speed_dir < 0);
+	if (dir != 0 && dir == mast_blocked_dir) {
+		speed_dir = 0;
+		dir = 0;
+	}
+	mast_applied_dir = dir;
+	if (dir != 0) mast_last_dir = dir;
+	MotorMastSpeedDir(speed_dir);
+}
+
+// À appeler à chaque tour de la state machine
+void UpdateMastAngle(void) {
+	uint32_t now = HAL_GetTick();
+	float dt = (now - mast_last_tick) / 1000.0f;
+	mast_last_tick = now;
+
+	// --- Limit switch ---
+	if (MastLimitActive()) {
+		mast_limit_seen_tick = now;
+		if (mast_blocked_dir == 0) {
+			mast_blocked_dir = mast_last_dir;   // on mémorise d'où on vient
+		}
+		if (mast_applied_dir != 0 && mast_applied_dir == mast_blocked_dir) {
+			mast_applied_dir = 0;
+			MotorMastSpeedDir(0);               // stop, mais l'autre direction reste permise
+		}
+	} else if (mast_blocked_dir != 0 && (now - mast_limit_seen_tick) >= MAST_LIMIT_FREE_MS) {
+		mast_blocked_dir = 0;                   // le switch ne voit plus de métal
+	}
+
+	// --- Calibration avec le bouton BG (premier appui seulement) ---
+	if (!mast_calibrated) {
+		if (status_button_bg == 1) {
+			mast_angle = 0.0f;
+			mast_calibrated = 1;
+		}
+		return;
+	}
+
+	// --- Calcul de l'angle par le temps ---
+	mast_angle += mast_applied_dir * MAST_DEG_PER_SEC * dt;
+}
+
 void DoMastControl() {
 
-	if (0) {
-		//sensor_data.limit1 == 0 || sensor_data.limit2 == 0
-		//return;
-	}
 	if (sensor_data.wind_speed_avg >= WIND_SPEED_MAST_THRESHOLD) {
 		if (fabsf(sensor_data.wind_direction_avg) >= WIND_DIR_MAST_HYSTERESIS) {
 			if (sensor_data.wind_direction_avg > 0.0f) {
-				MotorMastSpeedDir(-100);
+				MastCommand(-100);
 			} else {
-				MotorMastSpeedDir(100);
+				MastCommand(100);
 			}
 		}
 	} else {
-		MotorMastSpeedDir(0);
+		MastCommand(0);
 	}
 
 }

@@ -78,7 +78,8 @@
 
 
 // INFO Mario to Volant IDs 0x4X -> refer in volant files to: TouchGFX_4_23_2_tutorial_after_generating_code_step
-#define CAN_ID_MARIO_VAL_TURB_DIR 			0x40
+#define CAN_ID_MARIO_VAL_MAST_ANGLE 		0x40
+#define MAST_ANGLE_NOT_CALIBRATED 			-999.0f	// envoyé tant que le mât n'est pas calibré (le volant affiche "--")
 #define CAN_ID_MARIO_VAL_CURRENT_GEAR 		0x41
 #define CAN_ID_MARIO_VAL_WIND_DIR 			0x42
 #define CAN_ID_MARIO_VAL_SPEED 				0x43

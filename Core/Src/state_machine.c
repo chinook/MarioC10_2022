@@ -103,6 +103,7 @@ uint32_t DoStateInit() {
 uint32_t DoStateAcquisition() {
 
 	ReadWeatherStation();
+	UpdateMastAngle();
 
 	if (flag_acq_interval) {
 		flag_acq_interval = 0;
@@ -343,7 +344,11 @@ uint32_t DoStateMotorControl() {
 			//wrong code in CAN from Volant
 		}
 		if (motor_mode_mast == MOTOR_MODE_AUTOMATIC) {
-			DoMastControl();
+			if (mast_calibrated) {
+				DoMastControl();
+			} else {
+				MastCommand(0);   // pas d'auto tant que le mât n'est pas calibré (bouton BG)
+			}
 		} else if (motor_mode_mast == MOTOR_MODE_MANUAL) {
 			motor_direction_mast = 0;
 			if (status_button_hd == 1)
@@ -353,22 +358,22 @@ uint32_t DoStateMotorControl() {
 
 			switch (motor_direction_mast) {
 			case -1: {
-				MotorMastSpeedDir(-100);
+				MastCommand(-100);
 				break;
 			}
 			case 0: {
-				MotorMastSpeedDir(0);
+				MastCommand(0);
 				break;
 			}
 			case 1: {
-				MotorMastSpeedDir(100);
+				MastCommand(100);
 				break;
 			}
 			default:
-				MotorMastSpeedDir(0);
+				MastCommand(0);
 			}
 		} else {
-			MotorMastSpeedDir(0);
+			MastCommand(0);
 		}
 	}
 
@@ -522,10 +527,9 @@ uint32_t DoStateCan() {
 				break;
 			}
 
-			// ===== À CHANGER =====
 			case 10: {
-				float turb_dir_value = test_ws_receive_flag; // À CHANGER POUR mast_angle
-				TransmitCAN(CAN_ID_MARIO_VAL_TURB_DIR, (uint8_t*) &turb_dir_value, 4, 0);
+				float mast_angle_value = mast_calibrated ? mast_angle : MAST_ANGLE_NOT_CALIBRATED;
+				TransmitCAN(CAN_ID_MARIO_VAL_MAST_ANGLE, (uint8_t*) &mast_angle_value, 4, 0);
 				can_tx_state++;
 				break;
 			}

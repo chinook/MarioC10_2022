@@ -16,6 +16,11 @@ void DoMastControl();
 void DriveMotorMast();
 void MotorMastSpeedDir(int8_t speed_dir);
 
+void MastCommand(int8_t speed_dir);
+void UpdateMastAngle(void);
+
 extern float pitch_auto_target;
+extern float mast_angle;
+extern uint8_t mast_calibrated;
 
 #endif /* _MOTOR_CONTROL_H_ */
