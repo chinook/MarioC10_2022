@@ -474,7 +474,8 @@ uint32_t DoStateCan() {
 				break;
 			}
 			case 2: {
-				CalcTSR(); float tsr_value = sensor_data.tsr; // DONE
+				CalcTSR();
+				float tsr_value = sensor_data.tsr; // DONE
 				TransmitCAN(CAN_ID_MARIO_VAL_TSR, (uint8_t*) &tsr_value, 4, 0);
 				can_tx_state++;
 				break;
