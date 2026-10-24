@@ -85,6 +85,7 @@ void DoPitchControl() {
 
 #define MAST_DEG_PER_SEC     1.0f   // À MESURER (deg/s du mât à vitesse constante, négatif si le signe est inversé)
 #define MAST_LIMIT_FREE_MS   200    // délai sans métal avant de libérer la direction bloquée
+#define MAST_LIMIT_DEBOUNCE_MS 30   // durée minimale de "métal détecté" avant de bloquer (filtre les parasites)
 
 float mast_angle = 0.0f;
 uint8_t mast_calibrated = 0;           // 0 à chaque démarrage, jamais sauvegardé
@@ -93,10 +94,37 @@ static int8_t mast_last_dir = 0;       // dernière direction non nulle appliqu�
 static int8_t mast_blocked_dir = 0;    // direction interdite par le limit switch (0 = aucune)
 static uint32_t mast_last_tick = 0;
 static uint32_t mast_limit_seen_tick = 0;
+static uint32_t mast_limit_active_since = 0;   // début de la détection en cours (0 = aucune)
+static uint8_t mast_limit_initialized = 0;
 
-// Limit switch : 1 = rien, 0 = métal détecté
-static uint8_t MastLimitActive(void) {
+// Limit switch lu par sondage (sans interruption), avec résistance de rappel :
+// sans capteur branché la pin lit 1 (= rien détecté) au lieu de flotter.
+static void MastLimitInit(void) {
+	GPIO_InitTypeDef gpio = { 0 };
+
+	HAL_GPIO_DeInit(LIMIT1_GPIO_Port, LIMIT1_Pin);   // réinitialise la pin
+	gpio.Pin = LIMIT1_Pin;
+	gpio.Mode = GPIO_MODE_INPUT;
+	gpio.Pull = GPIO_PULLUP;
+	HAL_GPIO_Init(LIMIT1_GPIO_Port, &gpio);
+}
+
+// Retourne 0 (pas de métal, SET) ou 1 (métal détecté, RESET), grâce à la Limit switch
+static uint8_t MastLimitRaw(void) {
 	return HAL_GPIO_ReadPin(LIMIT1_GPIO_Port, LIMIT1_Pin) == GPIO_PIN_RESET;
+}
+
+// Retourne 0 (pas de métal) ou 1 (métal détecté depuis plus de 30ms)
+static uint8_t MastLimitActive(uint32_t now) {
+	if (!MastLimitRaw()) {
+		mast_limit_active_since = 0;
+		return 0;
+	}
+	if (mast_limit_active_since == 0) {
+		if(now != 0){mast_limit_active_since = now;}
+		else{mast_limit_active_since = 1;}
+	}
+	return (now - mast_limit_active_since) >= MAST_LIMIT_DEBOUNCE_MS;
 }
 
 // Remplace tous les appels directs à MotorMastSpeedDir()
@@ -117,8 +145,13 @@ void UpdateMastAngle(void) {
 	float dt = (now - mast_last_tick) / 1000.0f;
 	mast_last_tick = now;
 
+	if (!mast_limit_initialized) {
+		MastLimitInit();
+		mast_limit_initialized = 1;
+	}
+
 	// --- Limit switch ---
-	if (MastLimitActive()) {
+	if (MastLimitActive(now)) {
 		mast_limit_seen_tick = now;
 		if (mast_blocked_dir == 0) {
 			mast_blocked_dir = mast_last_dir;   // on mémorise d'où on vient
