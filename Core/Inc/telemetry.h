@@ -8,6 +8,9 @@
 #ifndef INC_TELEMETRY_H_
 #define INC_TELEMETRY_H_
 
+#include "main.h"
+
+void SdLog_WriteRow(const SensorData *d);
 void FloatToString(float value, int decimal_precision, unsigned char *val);
 void UartTxAcquisition();
 uint32_t DoStateUartTx();

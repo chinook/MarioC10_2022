@@ -51,6 +51,10 @@ uint8_t old_status_button_mg = 0;
 uint8_t status_button_mg_toggle_tmp = 0;
 uint8_t status_button_mg = 0;
 
+// Heure (HAL_GetTick) de la dernière trame de boutons reçue du Volant (CAN 0x30).
+// Sert à détecter la perte de liaison : sans elle, Mario garde le dernier état des boutons indéfiniment.
+volatile uint32_t volant_buttons_last_rx_ms = 0;
+
 uint8_t old_status_button_md = 0;
 uint8_t status_button_md_toggle_tmp = 0;
 uint8_t status_button_md = 0;
@@ -153,6 +157,7 @@ void ProcessCanMessage() {
 		 }
 		 old_cmd_mario_pitch_mode = can_data;*/
 	} else if (pRxHeader.StdId == CAN_ID_STATUS_BUTTONS) {
+		volant_buttons_last_rx_ms = HAL_GetTick();   // liaison avec le Volant vivante (voir DoStateMotorControl)
 		status_button_debug = 0; //reset debug bouton
 
 		uint32_t status_button_raw = extract_button_status_only_one_can_id(can_data,

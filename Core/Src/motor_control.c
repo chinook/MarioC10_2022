@@ -81,9 +81,14 @@ void DoPitchControl() {
 
 
 #define WIND_SPEED_MAST_THRESHOLD 1.0f
-#define WIND_DIR_MAST_HYSTERESIS 10.0f // -10degs, +10degs
+// Hystérésis du yaw auto : le mât démarre quand l'erreur de la girouette (vent par rapport au mât)
+// dépasse START, et ne s'arrête que quand elle repasse sous STOP (STOP < START pour éviter les démarrages/arrêts répétés)
+#define WIND_DIR_MAST_START_DEG 10.0f
+#define WIND_DIR_MAST_STOP_DEG   4.0f
+#define MAST_AUTO_DIR_SIGN       1      // sens du yaw auto : +1 = vent positif -> commande +100, -1 = inversé
+#define MAST_AUTO_MAX_RUN_MS 15000U     // durée max de rotation continue dans le même sens en auto (15 s ~ 126 deg à 8.4 deg/s). Course totale de l'engrenage ~260 deg
 
-#define MAST_DEG_PER_SEC     1.0f   // À MESURER (deg/s du mât à vitesse constante, négatif si le signe est inversé)
+#define MAST_DEG_PER_SEC     8.4f   // mesuré: 4 essais (HD et HDD, 5 à 8 s) sur un cercle de 12.5 cm de diamètre -> ~8.4 deg/s dans les 2 sens. À confirmer sur un parcours plus long (20 s+). Négatif si le signe est inversé
 #define MAST_LIMIT_FREE_MS   200    // délai sans métal avant de libérer la direction bloquée
 #define MAST_LIMIT_DEBOUNCE_MS 30   // durée minimale de "métal détecté" avant de bloquer (filtre les parasites)
 
@@ -177,19 +182,77 @@ void UpdateMastAngle(void) {
 	mast_angle += mast_applied_dir * MAST_DEG_PER_SEC * dt;
 }
 
+// Yaw automatique : la girouette est sur le mât, donc wind_direction_avg est directement l'erreur
+// (0 = mât aligné avec le vent). On tourne le mât dans le sens qui ramène l'erreur vers 0.
 void DoMastControl() {
+	static uint8_t moving = 0;        // 1 tant que le mât est en train de se réaligner (hystérésis)
+	static int8_t latched_dir = 0;    // verrou de butée / de durée : sens qu'on n'insiste pas à retenter
+	static int8_t run_dir = 0;        // sens de la rotation en cours (0 = arrêté)
+	static uint32_t run_start_ms = 0; // début de la rotation continue dans ce sens
+	static uint32_t last_call_ms = 0; // dernier appel (détecte une reprise après le mode manuel, ROPS, etc.)
 
-	if (sensor_data.wind_speed_avg >= WIND_SPEED_MAST_THRESHOLD) {
-		if (fabsf(sensor_data.wind_direction_avg) >= WIND_DIR_MAST_HYSTERESIS) {
-			if (sensor_data.wind_direction_avg > 0.0f) {
-				MastCommand(-100);
-			} else {
-				MastCommand(100);
-			}
-		}
-	} else {
+	float err = sensor_data.wind_direction_avg;
+	uint32_t now = HAL_GetTick();
+
+	// Reprise après une pause (mode manuel, vent faible, ROPS...) : on repart d'un état propre
+	if ((now - last_call_ms) > 200U) {
+		moving = 0;
+		latched_dir = 0;
+		run_dir = 0;
+	}
+	last_call_ms = now;
+
+	// Vent trop faible : la girouette n'est pas fiable, on ne bouge pas
+	if (sensor_data.wind_speed_avg < WIND_SPEED_MAST_THRESHOLD) {
+		moving = 0;
+		latched_dir = 0;
+		run_dir = 0;
 		MastCommand(0);
+		return;
 	}
 
+	// Hystérésis : démarre à START, s'arrête à STOP
+	if (!moving && fabsf(err) >= WIND_DIR_MAST_START_DEG) {
+		moving = 1;
+	} else if (moving && fabsf(err) <= WIND_DIR_MAST_STOP_DEG) {
+		moving = 0;
+	}
+
+	// Sens demandé : vent positif -> +100 (HDD), vent négatif -> -100 (HD).
+	// Testé sur le véhicule (oct. 2026) : le sens initial (vent positif -> -100) était inversé.
+	// Si le mât repart dans le mauvais sens après un changement de montage, mettre MAST_AUTO_DIR_SIGN à -1.
+	int8_t dir = 0;
+	if (moving) {
+		dir = (err > 0.0f) ? MAST_AUTO_DIR_SIGN : -MAST_AUTO_DIR_SIGN;
+	}
+
+	// Limite de durée : si le mât tourne sans arrêt dans le même sens plus de MAST_AUTO_MAX_RUN_MS
+	// (environ 126 deg à 8.4 deg/s), c'est qu'il n'arrive pas à s'aligner (sens inversé, girouette
+	// bloquée, vent qui change sans cesse, retard de la moyenne...). On l'arrête et on le verrouille
+	// comme pour une butée, jusqu'à ce que le vent demande l'autre sens ou l'arrêt.
+	if (dir == 0) {
+		run_dir = 0;
+	} else if (dir != run_dir) {
+		run_dir = dir;
+		run_start_ms = now;
+	} else if ((now - run_start_ms) >= MAST_AUTO_MAX_RUN_MS) {
+		latched_dir = dir;
+	}
+
+	// Verrou de butée : quand la limit switch bloque un sens, on le retient. Tant que le vent
+	// continue de demander ce même sens, on n'insiste pas (évite de retaper la butée toutes les
+	// 200 ms quand MastCommand() libère le sens bloqué). Le verrou saute dès que le vent demande
+	// l'autre sens ou l'arrêt.
+	if (mast_blocked_dir != 0) {
+		latched_dir = mast_blocked_dir;
+	}
+	if (dir != latched_dir) {
+		latched_dir = 0;
+	}
+	if (latched_dir != 0) {
+		dir = 0;
+	}
+
+	MastCommand(dir * 100);
 }
 

@@ -56,7 +56,8 @@ uint8_t ws_rx_byte[4];
 uint32_t test_ws_receive_flag = 0;
 
 #define KNOTS_TO_MS 0.514444f   // conversion noeuds -> m/s
-#define WIND_DIR_AVG_LEN 20     // taille de la moyenne glissante de direction du vent
+#define WIND_DIR_AVG_LEN 5      // taille de la moyenne glissante de direction du vent (était 20 : trop de retard pour le yaw auto,
+                                // le mât dépassait le vent). Retard = WIND_DIR_AVG_LEN / cadence de la station.
 
 // Lit la vitesse et la direction du vent depuis la station météo (trame NMEA "$IIMWV" sur UART5)
 void ReadWeatherStation() {
@@ -100,14 +101,18 @@ void ReadWeatherStation() {
 	// sans se soucier encore de la direction (gauche/droite).
 	static float wind_dir_log[WIND_DIR_AVG_LEN] = { 0 };
 	static int wind_dir_idx = 0;
+	static int wind_dir_count = 0;   // nombre de trames reçues (max WIND_DIR_AVG_LEN) : évite de moyenner les zéros du départ
 	wind_dir_log[wind_dir_idx] = wind_dir;
 	wind_dir_idx = (wind_dir_idx + 1) % WIND_DIR_AVG_LEN;
+	if (wind_dir_count < WIND_DIR_AVG_LEN) {
+		wind_dir_count++;
+	}
 
 	float sum_dir = 0;
-	for (int i = 0; i < WIND_DIR_AVG_LEN; i++) {
+	for (int i = 0; i < wind_dir_count; i++) {
 		sum_dir += wind_dir_log[i];
 	}
-	sensor_data.wind_direction_avg = sum_dir / WIND_DIR_AVG_LEN;
+	sensor_data.wind_direction_avg = sum_dir / wind_dir_count;
 
 	// Moyenne glissante de la vitesse (buffer circulaire de 4 valeurs)
 	wind_speeds[wind_speed_last_idx++] = wind_speed;

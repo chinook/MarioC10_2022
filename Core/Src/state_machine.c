@@ -111,36 +111,11 @@ uint32_t DoStateAcquisition() {
 		// Read pitch and mast encoders
 		sensor_data.pitch_encoder = ReadPitchEncoder();
 		sensor_data.pitch_angle = CalcPitchAngle_raw_to_deg();
-
-		//sensor_data.mast_encoder = ReadMastEncoder();
-		//TODO: (Marc) Mast Encoder
-		//sensor_data.mast_encoder = 0;
-
-		// Read limit switches of mast
-		//sensor_data.limit1 = HAL_GPIO_ReadPin(LIMIT1_GPIO_Port, LIMIT1_Pin);
-		//sensor_data.limit2 = HAL_GPIO_ReadPin(LIMIT2_GPIO_Port, LIMIT2_Pin);
-
-		// Read Torque + Loadcell adc
-//#define ADC_RESOLUTION 65536.0f  // (16 bits)
-//#define MAX_TORQUE 500.0f  // 500 N.m
-//#define MAX_LOADCELL 400.0f  // 400 Lbs
-		//static const float torque_adc_factor = MAX_TORQUE / ADC_RESOLUTION;
-		//static const float loadcell_adc_factor = MAX_LOADCELL / ADC_RESOLUTION;
-		//sensor_data.torque = ReadTorqueADC() * torque_adc_factor;
-		// sensor_data.torque = 0.0f;
-
-		//sensor_data.torque = ReadTorqueADC();
-		//sensor_data.loadcell = ReadLoadcellADC();
-
-		//ReadTorqueLoadcellADC();
 		ReadTorqueLoadcellADC_IT();
 	}
 
 	if (flag_wheel_rpm_process) {
 		flag_wheel_rpm_process = 0;
-
-		// Fonction pour aller chercher le wheel_rpm qui est essentielle pour CalcVehicleSpeed()
-		// ReadWheelRPM();
 
 		// Fonctions pour avoir plusieurs données sur le véhicule
 		// (Aller voir chaque fonction si on veut savoir elle retourne quoi)
@@ -148,89 +123,7 @@ uint32_t DoStateAcquisition() {
 		CalcCurrentGear();
 		CalcEfficiency();
 		CalcTSR();
-
-		// Sauvegarde des données sur la carte micro SD
-		{
-		    UINT bw;
-		    char line[320];
-		    static char sd_filename[16] = "";  // Nom du fichier pour cette session
-
-		    // Helper macro: split a float into integer and 2-decimal parts
-		    #define SD_INT(v)  ((int)(v))
-		    #define SD_DEC(v)  ((int)(((v) >= 0 ? (v) - (int)(v) : (int)(v) - (v)) * 100))
-
-		    // Utilise les variables globales de fatfs.c (SDFatFS, SDFile)
-		    FRESULT res_mount = f_mount(&SDFatFS, SDPath, 1);
-		    if (res_mount != FR_OK) {
-		        // SD mount failed — LED2 ON to signal error
-		        HAL_GPIO_WritePin(LED2_GPIO_Port, LED2_Pin, GPIO_PIN_SET);
-		    } else {
-		        // Au premier appel, trouver le prochain numéro disponible
-		        if (sd_filename[0] == '\0') {
-		            for (int i = 1; i <= 9999; i++) {
-		                sprintf(sd_filename, "0:/data%d.csv", i);
-		                FRESULT res_check = f_open(&SDFile, sd_filename, FA_READ);
-		                if (res_check == FR_NO_FILE) {
-		                    break;  // Ce numéro est libre
-		                }
-		                f_close(&SDFile);
-		            }
-		        }
-
-		        FRESULT res_open = f_open(&SDFile, sd_filename, FA_OPEN_APPEND | FA_WRITE | FA_READ);
-		        if (res_open != FR_OK) {
-		            // Affiche le code d'erreur en binaire sur LED2 (bit0), LED3 (bit1), LED4 (bit2)
-		            HAL_GPIO_WritePin(LED2_GPIO_Port, LED2_Pin, (res_open & 0x01) ? GPIO_PIN_SET : GPIO_PIN_RESET);
-		            HAL_GPIO_WritePin(LED3_GPIO_Port, LED3_Pin, (res_open & 0x02) ? GPIO_PIN_SET : GPIO_PIN_RESET);
-		            HAL_GPIO_WritePin(LED4_GPIO_Port, LED4_Pin, (res_open & 0x04) ? GPIO_PIN_SET : GPIO_PIN_RESET);
-		        } else {
-		            // SD OK — LED2 OFF
-		            HAL_GPIO_WritePin(LED2_GPIO_Port, LED2_Pin, GPIO_PIN_RESET);
-
-		            // Write CSV header only if file is empty (first run)
-		            if (f_size(&SDFile) == 0) {
-		                const char *header = "temps_s,vitesse_vehicule,vitesse_vent,gear_ratio,pitch_degree,rotor_speed,TURB,CMD,WIND,Efficiency,TSR\r\n";
-		                f_write(&SDFile, header, strlen(header), &bw);
-		            }
-
-		            // Gather all values
-		            uint32_t temps_s   = HAL_GetTick() / 1000;
-		            float    v_spd     = sensor_data.vehicle_speed;
-		            float    w_spd     = sensor_data.wind_speed;
-		            uint8_t  gear      = sensor_data.current_gear;
-		            float    pitch     = sensor_data.pitch_angle;
-		            float    rotor     = sensor_data.rotor_rpm;
-		            uint32_t turb      = test_ws_receive_flag;
-		            float    cmd       = sensor_data.wind_speed_avg;
-		            float    wind_dir  = sensor_data.wind_direction;
-		            float    eff       = sensor_data.efficiency;
-		            float    tsr	   = sensor_data.tsr;
-
-		            // Write data row (no %f — use integer math for floats)
-		            sprintf(line,
-		                "%lu,%d.%02d,%d.%02d,%u,%d.%02d,%d.%02d,%lu,%d.%02d,%d.%02d,%d.%02d,%d.%02d\r\n",
-		                temps_s,
-		                SD_INT(v_spd),   SD_DEC(v_spd),
-		                SD_INT(w_spd),   SD_DEC(w_spd),
-		                gear,
-		                SD_INT(pitch),   SD_DEC(pitch),
-		                SD_INT(rotor),   SD_DEC(rotor),
-		                turb,
-		                SD_INT(cmd),     SD_DEC(cmd),
-		                SD_INT(wind_dir),SD_DEC(wind_dir),
-		                SD_INT(eff),     SD_DEC(eff),
-		                SD_INT(tsr),     SD_DEC(tsr)
-		            );
-
-		            f_write(&SDFile, line, strlen(line), &bw);
-		            f_close(&SDFile);
-		        }
-		        f_mount(NULL, SDPath, 1);
-		    }
-
-		    #undef SD_INT
-		    #undef SD_DEC
-		}
+		SdLog_WriteRow(&sensor_data);
 	}
 
 	if (flag_rotor_rpm_process) {
@@ -267,6 +160,8 @@ int8_t motor_direction_mast = 0;
 
 uint8_t motor_speed_pitch = 0;
 uint8_t motor_speed_mast = 0;
+
+#define VOLANT_LINK_TIMEOUT_MS 500   // sans trame de boutons du Volant pendant ce délai, le mât s'arrête (manuel)
 
 uint32_t DoStateMotorControl() {
 	if (flag_motor_control == 1) {
@@ -336,6 +231,16 @@ uint32_t DoStateMotorControl() {
 		}
 
 		////////////////////////////
+		// Sécurité : perte de liaison avec le Volant. Le Volant envoie l'état des boutons (CAN 0x30)
+		// toutes les 4 ms. Sans aucune trame depuis VOLANT_LINK_TIMEOUT_MS, Mario ne doit pas garder
+		// les derniers états en mémoire (mode auto de MD, ou HD/HDD "enfoncés") : le mât repasse en
+		// manuel sans mouvement, ce qui l'arrête, tant que la liaison n'est pas revenue.
+		if ((HAL_GetTick() - volant_buttons_last_rx_ms) > VOLANT_LINK_TIMEOUT_MS) {
+			status_button_md = 0;
+			status_button_hd = 0;
+			status_button_hdd = 0;
+		}
+
 		if (status_button_md == 1) {
 			motor_mode_mast = MOTOR_MODE_AUTOMATIC;
 		} else if (status_button_md == 0) {
